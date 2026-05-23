@@ -2,6 +2,7 @@ package store
 
 import (
 	"sync"
+	"thermalkv/internal/store/persistance"
 	"time"
 )
 
@@ -29,6 +30,7 @@ func (s *Store) Set(key string, value string) {
 	s.Data[key] = Item{
 		Value: value,
 	}
+	persistance.WriteLog("SET", key, value)
 }
 
 func (s *Store) Get(key string) (string, bool) {

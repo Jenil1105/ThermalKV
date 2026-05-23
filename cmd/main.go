@@ -13,7 +13,7 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 500; i++ {
 
 		wg.Add(1)
 
@@ -24,14 +24,27 @@ func main() {
 			value := "value" + strconv.Itoa(i)
 
 			db.Set(key, value)
-			db.Get(key)
-			db.Delete(key)
+			fmt.Println("SET:", key)
+
+			val, ok := db.Get(key)
+
+			if ok {
+				fmt.Println("GET:", key, "=", val)
+			}
+
+			if i == 3 {
+				db.SetTTL(key, 2)
+				fmt.Println("TTL SET:", key)
+			} else {
+				db.Delete(key)
+				fmt.Println("DELETED:", key)
+			}
+
 		}(i)
 
-		wg.Wait()
-		fmt.Println("finished")
-
 	}
+	wg.Wait()
+	fmt.Println("finished")
 
 	// db.Set("token", "abc123")
 	// db.SetTTL("token", 5)

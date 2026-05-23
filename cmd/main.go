@@ -2,22 +2,45 @@ package main
 
 import (
 	"fmt"
+	"strconv"
+	"sync"
 	"thermalkv/internal/store"
-	"time"
 )
 
 func main() {
 	db := store.NewStore()
+	db.StartCleaner()
 
-	db.Set("token", "abc123")
+	var wg sync.WaitGroup
 
-	db.SetTTL("token", 5)
+	for i := 0; i < 1000; i++ {
 
-	value, exists := db.Get("token")
-	fmt.Println(value, exists)
+		wg.Add(1)
 
-	time.Sleep(6 * time.Second)
+		go func(i int) {
+			defer wg.Done()
 
-	value, exists = db.Get("token")
-	fmt.Println(value, exists)
+			key := "key" + strconv.Itoa(i)
+			value := "value" + strconv.Itoa(i)
+
+			db.Set(key, value)
+			db.Get(key)
+			db.Delete(key)
+		}(i)
+
+		wg.Wait()
+		fmt.Println("finished")
+
+	}
+
+	// db.Set("token", "abc123")
+	// db.SetTTL("token", 5)
+
+	// value, exists := db.Get("token")
+	// fmt.Println(value, exists)
+
+	// time.Sleep(6 * time.Second)
+
+	// value, exists = db.Get("token")
+	// fmt.Println(value, exists)
 }

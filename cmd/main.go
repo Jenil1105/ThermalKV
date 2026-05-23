@@ -3,19 +3,21 @@ package main
 import (
 	"fmt"
 	"thermalkv/internal/store"
+	"time"
 )
 
 func main() {
 	db := store.NewStore()
 
-	db.Set("name:first", "jenil")
-	db.Set("empty", "")
+	db.Set("token", "abc123")
 
-	fmt.Println("ThermalKV starting...")
-	value, exists := db.Get("empty")
-	if exists {
-		fmt.Println("value:", value)
-	} else {
-		fmt.Println("Key not found...")
-	}
+	db.SetTTL("token", 5)
+
+	value, exists := db.Get("token")
+	fmt.Println(value, exists)
+
+	time.Sleep(6 * time.Second)
+
+	value, exists = db.Get("token")
+	fmt.Println(value, exists)
 }

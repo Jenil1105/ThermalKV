@@ -1,8 +1,9 @@
 package store
 
 import (
+	"strings"
 	"sync"
-	"thermalkv/internal/store/persistence"
+	"thermalkv/internal/persistence"
 	"time"
 )
 
@@ -104,4 +105,22 @@ func (s *Store) StartCleaner() {
 			s.Mutex.Unlock()
 		}
 	}()
+}
+
+func (s *Store) Recover(logs []string) {
+	for _, log := range logs {
+		parts := strings.Split(log, " ")
+
+		if len(parts) < 3 {
+			continue
+		}
+
+		operation := parts[0]
+		key := parts[1]
+		value := parts[2]
+
+		if operation == "SET" {
+			s.Data[key] = Item{Value: value}
+		}
+	}
 }

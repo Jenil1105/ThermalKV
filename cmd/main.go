@@ -1,59 +1,81 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"strconv"
-	"sync"
+	"os"
+	"strings"
+
+	//"text/scanner"
+
+	// "strconv"
+	// "sync"
+	"thermalkv/internal/persistence"
 	"thermalkv/internal/store"
 )
 
 func main() {
+
 	db := store.NewStore()
 	db.StartCleaner()
 
-	var wg sync.WaitGroup
+	logs := persistence.LoadLogs()
+	db.Recover(logs)
 
-	for i := 0; i < 500; i++ {
+	scanner := bufio.NewScanner(os.Stdin)
 
-		wg.Add(1)
+	fmt.Println("KV Started...")
 
-		go func(i int) {
-			defer wg.Done()
+	for {
+		fmt.Print("> ")
+		scanner.Scan()
 
-			key := "key" + strconv.Itoa(i)
-			value := "value" + strconv.Itoa(i)
+		input := scanner.Text()
+		parts := strings.Split(input, " ")
+		command := strings.ToUpper(parts[0])
 
+		switch command {
+		case "SET":
+			if len(parts) < 3 {
+				fmt.Println("Usage: SET key value")
+				continue
+			}
+			key := parts[1]
+			value := parts[2]
 			db.Set(key, value)
-			fmt.Println("SET:", key)
+			fmt.Println("Done :)")
 
-			val, ok := db.Get(key)
-
-			if ok {
-				fmt.Println("GET:", key, "=", val)
+		case "GET":
+			if len(parts) < 2 {
+				fmt.Println("Usage: GET key")
+				continue
 			}
+			key := parts[1]
+			value, exists := db.Get(key)
 
-			if i == 3 {
-				db.SetTTL(key, 2)
-				fmt.Println("TTL SET:", key)
+			if exists {
+				fmt.Println(value)
 			} else {
-				db.Delete(key)
-				fmt.Println("DELETED:", key)
+				fmt.Println("Key not found... :(")
 			}
 
-		}(i)
+		case "DEL":
+			if len(parts) < 2 {
+				fmt.Println("Usage: DEL key")
+				continue
+			}
+			key := parts[1]
+			db.Delete(key)
+			fmt.Println("Deleted")
+
+		case "EXIT":
+			fmt.Println("bye... ")
+			return
+
+		default:
+			fmt.Println("Unknown command")
+		}
 
 	}
-	wg.Wait()
-	fmt.Println("finished")
 
-	// db.Set("token", "abc123")
-	// db.SetTTL("token", 5)
-
-	// value, exists := db.Get("token")
-	// fmt.Println(value, exists)
-
-	// time.Sleep(6 * time.Second)
-
-	// value, exists = db.Get("token")
-	// fmt.Println(value, exists)
 }

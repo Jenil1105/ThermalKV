@@ -2,7 +2,7 @@ package store
 
 import (
 	"sync"
-	"thermalkv/internal/store/persistance"
+	"thermalkv/internal/store/persistence"
 	"time"
 )
 
@@ -30,21 +30,37 @@ func (s *Store) Set(key string, value string) {
 	s.Data[key] = Item{
 		Value: value,
 	}
-	persistance.WriteLog("SET", key, value)
+	persistence.WriteLog("SET", key, value)
 }
 
 func (s *Store) Get(key string) (string, bool) {
 
 	s.Mutex.RLock()
-	defer s.Mutex.RUnlock()
-
 	item, exists := s.Data[key]
 
 	if !exists {
+		s.Mutex.RUnlock()
 		return "", false
 	}
 
-	return item.Value, true
+	// If item has expired, remove it and return as missing.
+	if !item.Expiry.IsZero() && time.Now().After(item.Expiry) {
+		s.Mutex.RUnlock()
+		s.Mutex.Lock()
+		// Double-check under write lock before deleting to avoid races.
+		item2, exists2 := s.Data[key]
+		if exists2 {
+			if !item2.Expiry.IsZero() && time.Now().After(item2.Expiry) {
+				delete(s.Data, key)
+			}
+		}
+		s.Mutex.Unlock()
+		return "", false
+	}
+
+	value := item.Value
+	s.Mutex.RUnlock()
+	return value, true
 }
 
 func (s *Store) Delete(key string) {

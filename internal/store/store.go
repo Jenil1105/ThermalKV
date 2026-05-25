@@ -1,6 +1,7 @@
 package store
 
 import (
+	"strconv"
 	"strings"
 	"sync"
 	"thermalkv/internal/persistence"
@@ -17,12 +18,14 @@ type Store struct {
 	Mutex sync.RWMutex
 }
 
+// NewStore
 func NewStore() *Store {
 	return &Store{
 		Data: make(map[string]Item),
 	}
 }
 
+// Set
 func (s *Store) Set(key string, value string) {
 
 	s.Mutex.Lock()
@@ -34,6 +37,7 @@ func (s *Store) Set(key string, value string) {
 	persistence.WriteLog("SET", key, value)
 }
 
+// Get
 func (s *Store) Get(key string) (string, bool) {
 
 	s.Mutex.RLock()
@@ -61,14 +65,16 @@ func (s *Store) Get(key string) (string, bool) {
 
 	value := item.Value
 	s.Mutex.RUnlock()
+	persistence.WriteLog("GET", key)
 	return value, true
 }
 
+// Delete
 func (s *Store) Delete(key string) {
 
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
-
+	persistence.WriteLog("DEL", key)
 	delete(s.Data, key)
 }
 
@@ -84,10 +90,11 @@ func (s *Store) SetTTL(key string, seconds int) {
 	}
 
 	item.Expiry = time.Now().Add(time.Duration(seconds) * time.Second)
-
+	persistence.WriteLog("TTL", key, strconv.Itoa(seconds))
 	s.Data[key] = item
 }
 
+// StartCleaner starts a background goroutine that periodically checks for expired keys and removes them from the store.
 func (s *Store) StartCleaner() {
 	go func() {
 		for {
@@ -97,7 +104,6 @@ func (s *Store) StartCleaner() {
 
 			for key, item := range s.Data {
 				if !item.Expiry.IsZero() && time.Now().After(item.Expiry) {
-					println("we need to delete key ", key)
 					delete(s.Data, key)
 				}
 			}
@@ -107,20 +113,33 @@ func (s *Store) StartCleaner() {
 	}()
 }
 
+// Recover replays the given logs to restore the store's state after a restart.
 func (s *Store) Recover(logs []string) {
 	for _, log := range logs {
-		parts := strings.Split(log, " ")
+		parts := strings.Fields(log)
 
-		if len(parts) < 3 {
+		if len(parts) < 2 {
 			continue
 		}
 
 		operation := parts[0]
 		key := parts[1]
-		value := parts[2]
 
-		if operation == "SET" {
+		switch operation {
+
+		case "SET":
+			if len(parts) < 3 {
+				continue
+			}
+
+			value := parts[2]
 			s.Data[key] = Item{Value: value}
+
+		case "DELETE":
+			delete(s.Data, key)
+
+		case "GET":
+			// no recovery action needed
 		}
 	}
 }

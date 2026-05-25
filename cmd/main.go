@@ -4,14 +4,12 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
-
-	//"text/scanner"
-
-	// "strconv"
-	// "sync"
 	"thermalkv/internal/persistence"
 	"thermalkv/internal/store"
+	//"text/scanner"
+	// "sync"
 )
 
 func main() {
@@ -35,6 +33,7 @@ func main() {
 		command := strings.ToUpper(parts[0])
 
 		switch command {
+
 		case "SET":
 			if len(parts) < 3 {
 				fmt.Println("Usage: SET key value")
@@ -67,6 +66,28 @@ func main() {
 			key := parts[1]
 			db.Delete(key)
 			fmt.Println("Deleted")
+
+		case "TTL":
+			if len(parts) < 3 {
+				fmt.Println("Usage: TTL key seconds")
+				continue
+			}
+
+			key := parts[1]
+			seconds, err := strconv.Atoi(parts[2])
+
+			if err != nil {
+				fmt.Println("Invalid seconds")
+				continue
+			}
+			_, exists := db.Get(key)
+
+			if exists {
+				db.SetTTL(key, seconds)
+				fmt.Println("TTL set")
+			} else {
+				fmt.Println("Key not found... :(")
+			}
 
 		case "EXIT":
 			fmt.Println("bye... ")

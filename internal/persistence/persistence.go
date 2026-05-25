@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strings"
 )
 
-func WriteLog(operation string, key string, value string) {
+func WriteLog(operation string, key string, value ...string) {
 	file, err := os.OpenFile(
 		"data/wal.log",
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
@@ -20,7 +21,7 @@ func WriteLog(operation string, key string, value string) {
 
 	defer file.Close()
 
-	log := fmt.Sprintf("%s %s %s\n", operation, key, value)
+	log := fmt.Sprintf("%s %s %s\n", operation, key, strings.Join(value, " "))
 	file.WriteString(log)
 
 }

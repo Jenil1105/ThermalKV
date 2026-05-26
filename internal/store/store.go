@@ -10,7 +10,7 @@ import (
 
 type Item struct {
 	Value  string
-	Expiry time.Time
+	Expiry int64
 }
 
 type Store struct {
@@ -49,13 +49,13 @@ func (s *Store) Get(key string) (string, bool) {
 	}
 
 	// If item has expired, remove it and return as missing.
-	if !item.Expiry.IsZero() && time.Now().After(item.Expiry) {
+	if item.Expiry != 0 && time.Now().After(time.Unix(item.Expiry, 0)) {
 		s.Mutex.RUnlock()
 		s.Mutex.Lock()
 		// Double-check under write lock before deleting to avoid races.
 		item2, exists2 := s.Data[key]
 		if exists2 {
-			if !item2.Expiry.IsZero() && time.Now().After(item2.Expiry) {
+			if item2.Expiry != 0 && time.Now().After(time.Unix(item2.Expiry, 0)) {
 				delete(s.Data, key)
 			}
 		}
@@ -87,9 +87,9 @@ func (s *Store) SetTTL(key string, seconds int) {
 	if !exists {
 		return
 	}
-
-	item.Expiry = time.Now().Add(time.Duration(seconds) * time.Second)
-	persistence.WriteLog("TTL", key, strconv.Itoa(seconds))
+	expiry := time.Now().Unix() + int64(seconds)
+	item.Expiry = expiry
+	persistence.WriteLog("EXPIRE", key, strconv.FormatInt(expiry, 10))
 	s.Data[key] = item
 }
 
@@ -102,7 +102,7 @@ func (s *Store) StartCleaner() {
 			s.Mutex.Lock()
 
 			for key, item := range s.Data {
-				if !item.Expiry.IsZero() && time.Now().After(item.Expiry) {
+				if item.Expiry != 0 && time.Now().After(time.Unix(item.Expiry, 0)) {
 					delete(s.Data, key)
 				}
 			}
@@ -140,14 +140,14 @@ func (s *Store) Recover(logs []string) {
 		case "GET":
 			// no recovery action needed
 
-		case "TTL":
-			seconds, err := strconv.Atoi(parts[2])
+		case "EXPIRE":
+			expiry, err := strconv.ParseInt(parts[2], 10, 64)
 			if err != nil {
 				continue
 			}
 			item, exists := s.Data[key]
 			if exists {
-				item.Expiry = time.Now().Add(time.Duration(seconds) * time.Second)
+				item.Expiry = expiry
 				s.Data[key] = item
 			} else {
 				return

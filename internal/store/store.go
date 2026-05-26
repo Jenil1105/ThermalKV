@@ -65,7 +65,6 @@ func (s *Store) Get(key string) (string, bool) {
 
 	value := item.Value
 	s.Mutex.RUnlock()
-	persistence.WriteLog("GET", key)
 	return value, true
 }
 
@@ -140,6 +139,19 @@ func (s *Store) Recover(logs []string) {
 
 		case "GET":
 			// no recovery action needed
+
+		case "TTL":
+			seconds, err := strconv.Atoi(parts[2])
+			if err != nil {
+				continue
+			}
+			item, exists := s.Data[key]
+			if exists {
+				item.Expiry = time.Now().Add(time.Duration(seconds) * time.Second)
+				s.Data[key] = item
+			} else {
+				return
+			}
 		}
 	}
 }

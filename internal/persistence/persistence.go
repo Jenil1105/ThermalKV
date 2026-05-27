@@ -102,3 +102,15 @@ func LoadSnapshot() map[string]model.SnapshotItem {
 	}
 	return snapshot
 }
+
+func ClearWAL() {
+	file, err := os.Create("data/wal.log")
+
+	if err != nil {
+		fmt.Println("Error clearing WAL:", err)
+		return
+	}
+
+	file.Close()
+
+}

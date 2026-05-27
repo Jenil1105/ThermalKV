@@ -40,6 +40,7 @@ func (s *Store) Set(key string, value string) {
 	if s.WriteCount >= 5 {
 		snapshot := s.ExportData()
 		persistence.SaveSnapshot(snapshot)
+		persistence.ClearWAL()
 		s.WriteCount = 0
 		fmt.Println("Snapshot saved...")
 	}
@@ -91,6 +92,7 @@ func (s *Store) Delete(key string) {
 	if s.WriteCount >= 5 {
 		snapshot := s.ExportData()
 		persistence.SaveSnapshot(snapshot)
+		persistence.ClearWAL()
 		s.WriteCount = 0
 		fmt.Println("Snapshot saved...")
 	}

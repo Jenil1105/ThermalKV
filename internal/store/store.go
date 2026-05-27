@@ -1,27 +1,25 @@
 package store
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
+	"thermalkv/internal/model"
 	"thermalkv/internal/persistence"
 	"time"
 )
 
-type Item struct {
-	Value  string
-	Expiry int64
-}
-
 type Store struct {
-	Data  map[string]Item
-	Mutex sync.RWMutex
+	Data       map[string]model.Item
+	Mutex      sync.RWMutex
+	WriteCount int
 }
 
 // NewStore
 func NewStore() *Store {
 	return &Store{
-		Data: make(map[string]Item),
+		Data: make(map[string]model.Item),
 	}
 }
 
@@ -29,12 +27,23 @@ func NewStore() *Store {
 func (s *Store) Set(key string, value string) {
 
 	s.Mutex.Lock()
-	defer s.Mutex.Unlock()
 
-	s.Data[key] = Item{
+	s.Data[key] = model.Item{
 		Value: value,
 	}
 	persistence.WriteLog("SET", key, value)
+
+	s.Mutex.Unlock()
+
+	s.WriteCount++
+
+	if s.WriteCount >= 5 {
+		snapshot := s.ExportData()
+		persistence.SaveSnapshot(snapshot)
+		s.WriteCount = 0
+		fmt.Println("Snapshot saved...")
+	}
+
 }
 
 // Get
@@ -72,9 +81,19 @@ func (s *Store) Get(key string) (string, bool) {
 func (s *Store) Delete(key string) {
 
 	s.Mutex.Lock()
-	defer s.Mutex.Unlock()
-	persistence.WriteLog("DEL", key)
+
 	delete(s.Data, key)
+	persistence.WriteLog("DEL", key)
+
+	s.Mutex.Unlock()
+
+	s.WriteCount++
+	if s.WriteCount >= 5 {
+		snapshot := s.ExportData()
+		persistence.SaveSnapshot(snapshot)
+		s.WriteCount = 0
+		fmt.Println("Snapshot saved...")
+	}
 }
 
 func (s *Store) SetTTL(key string, seconds int) {
@@ -132,7 +151,7 @@ func (s *Store) Recover(logs []string) {
 			}
 
 			value := parts[2]
-			s.Data[key] = Item{Value: value}
+			s.Data[key] = model.Item{Value: value}
 
 		case "DELETE":
 			delete(s.Data, key)
@@ -152,6 +171,33 @@ func (s *Store) Recover(logs []string) {
 			} else {
 				return
 			}
+		}
+	}
+}
+
+func (s *Store) ExportData() map[string]model.SnapshotItem {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+
+	snapshot := make(map[string]model.SnapshotItem)
+
+	for key, item := range s.Data {
+		snapshot[key] = model.SnapshotItem{
+			Value:  item.Value,
+			Expiry: item.Expiry,
+		}
+	}
+	return snapshot
+}
+
+func (s *Store) ImportData(snapshot map[string]model.SnapshotItem) {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	for key, item := range snapshot {
+		s.Data[key] = model.Item{
+			Value:  item.Value,
+			Expiry: item.Expiry,
 		}
 	}
 }

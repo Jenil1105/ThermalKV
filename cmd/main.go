@@ -17,6 +17,8 @@ func main() {
 	db := store.NewStore()
 	db.StartCleaner()
 
+	snapshot := persistence.LoadSnapshot()
+	db.ImportData(snapshot)
 	logs := persistence.LoadLogs()
 	db.Recover(logs)
 

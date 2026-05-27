@@ -1,12 +1,14 @@
 package store
 
 import (
+	"container/heap"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 	"thermalkv/internal/model"
 	"thermalkv/internal/persistence"
+	"thermalkv/internal/ttl"
 	"time"
 )
 
@@ -14,12 +16,16 @@ type Store struct {
 	Data       map[string]model.Item
 	Mutex      sync.RWMutex
 	WriteCount int
+	ExpiryHeap ttl.MinHeap
 }
 
 // NewStore
 func NewStore() *Store {
+	h := ttl.MinHeap{}
+	heap.Init(&h)
 	return &Store{
-		Data: make(map[string]model.Item),
+		Data:       make(map[string]model.Item),
+		ExpiryHeap: h,
 	}
 }
 
@@ -110,24 +116,48 @@ func (s *Store) SetTTL(key string, seconds int) {
 	}
 	expiry := time.Now().Unix() + int64(seconds)
 	item.Expiry = expiry
-	persistence.WriteLog("EXPIRE", key, strconv.FormatInt(expiry, 10))
 	s.Data[key] = item
+
+	heap.Push(&s.ExpiryHeap, ttl.ExpiryItem{
+		Key:    key,
+		Expiry: expiry,
+	})
+
+	persistence.WriteLog("EXPIRE", key, strconv.FormatInt(expiry, 10))
 }
 
 // StartCleaner starts a background goroutine that periodically checks for expired keys and removes them from the store.
 func (s *Store) StartCleaner() {
 	go func() {
 		for {
-			time.Sleep(1 * time.Second)
-
 			s.Mutex.Lock()
 
-			for key, item := range s.Data {
-				if item.Expiry != 0 && time.Now().After(time.Unix(item.Expiry, 0)) {
-					delete(s.Data, key)
-				}
+			if len(s.ExpiryHeap) == 0 {
+				s.Mutex.Unlock()
+				time.Sleep(1 * time.Second)
+				continue
 			}
 
+			top := s.ExpiryHeap[0]
+			now := time.Now().Unix()
+
+			if top.Expiry > now {
+				sleepDuration := time.Duration(top.Expiry-now) * time.Second
+				s.Mutex.Unlock()
+				time.Sleep(sleepDuration)
+				continue
+			}
+
+			expired := heap.Pop(&s.ExpiryHeap).(ttl.ExpiryItem)
+
+			item, exists := s.Data[expired.Key]
+
+			if exists {
+				if item.Expiry == expired.Expiry {
+					delete(s.Data, expired.Key)
+					fmt.Println("Expired:", expired.Key)
+				}
+			}
 			s.Mutex.Unlock()
 		}
 	}()
@@ -155,7 +185,7 @@ func (s *Store) Recover(logs []string) {
 			value := parts[2]
 			s.Data[key] = model.Item{Value: value}
 
-		case "DELETE":
+		case "DEL":
 			delete(s.Data, key)
 
 		case "GET":

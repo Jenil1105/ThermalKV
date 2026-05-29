@@ -103,10 +103,43 @@ func HandleConnection(conn net.Conn, db *store.Store) {
 
 			if exists {
 				db.SetTTL(key, seconds)
-				WriteResponse(conn, "TTL set\n")
+				WriteResponse(conn, "TTL set")
 			} else {
 				WriteResponse(conn, "Key not found... :(")
 			}
+
+		case "COUNT":
+			count := db.Count()
+
+			WriteResponse(conn, fmt.Sprintf("%d", count))
+
+		case "EXISTS":
+			if len(parts) < 2 {
+				WriteResponse(conn, "Usage: EXISTS key")
+				continue
+			}
+
+			key := parts[1]
+
+			if db.Exists(key) {
+				WriteResponse(conn, "true")
+			} else {
+				WriteResponse(conn, "false")
+			}
+
+		case "KEYS":
+			keys := db.Keys()
+
+			if len(keys) == 0 {
+				WriteResponse(conn, "No keys")
+				continue
+			}
+
+			WriteResponse(conn, strings.Join(keys, ", "))
+
+		case "INFO":
+			info := fmt.Sprintf("Keys: %d :: Heap Entries: %d :: Writes Since Snapshot: %d", db.Count(), db.HeapSize(), db.GetWriteCount())
+			WriteResponse(conn, info)
 
 		case "EXIT":
 			WriteResponse(conn, "bye... ")

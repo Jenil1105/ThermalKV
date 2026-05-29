@@ -19,7 +19,7 @@ func Start(db *store.Store) {
 
 	defer listener.Close()
 
-	fmt.Println("ThermalKV server running on port 8080")
+	fmt.Println("ThermalKV server running on port 8080...")
 
 	for {
 		conn, err := listener.Accept()
@@ -44,7 +44,7 @@ func HandleConnection(conn net.Conn, db *store.Store) {
 			return
 		}
 		input = strings.TrimSpace(input)
-		parts := strings.SplitN(input, " ", 3)
+		parts := strings.Split(input, " ")
 
 		if len(parts) == 0 {
 			continue
@@ -55,40 +55,40 @@ func HandleConnection(conn net.Conn, db *store.Store) {
 
 		case "SET":
 			if len(parts) < 3 {
-				conn.Write([]byte("Usage: SET key value\n"))
+				WriteResponse(conn, "Usage: SET key value")
 				continue
 			}
 			key := parts[1]
-			value := parts[2]
+			value := strings.Join(parts[2:], " ")
 			db.Set(key, value)
-			conn.Write([]byte("Done :)\n"))
+			WriteResponse(conn, "Done :)")
 
 		case "GET":
 			if len(parts) < 2 {
-				conn.Write([]byte("Usage: GET key\n"))
+				WriteResponse(conn, "Usage: GET key")
 				continue
 			}
 			key := parts[1]
 			value, exists := db.Get(key)
 
 			if exists {
-				conn.Write([]byte(value + "\n"))
+				WriteResponse(conn, value)
 			} else {
-				conn.Write([]byte("Key not found... :(\n"))
+				WriteResponse(conn, "Key not found... :(")
 			}
 
 		case "DEL":
 			if len(parts) < 2 {
-				conn.Write([]byte("Usage: DEL key\n"))
+				WriteResponse(conn, "Usage: DEL key")
 				continue
 			}
 			key := parts[1]
 			db.Delete(key)
-			conn.Write([]byte("Deleted\n"))
+			WriteResponse(conn, "Deleted")
 
 		case "TTL":
 			if len(parts) < 3 {
-				conn.Write([]byte("Usage: TTL key seconds\n"))
+				WriteResponse(conn, "Usage: TTL key seconds")
 				continue
 			}
 
@@ -96,24 +96,28 @@ func HandleConnection(conn net.Conn, db *store.Store) {
 			seconds, err := strconv.Atoi(parts[2])
 
 			if err != nil {
-				conn.Write([]byte("Invalid seconds\n"))
+				WriteResponse(conn, "Invalid seconds")
 				continue
 			}
 			_, exists := db.Get(key)
 
 			if exists {
 				db.SetTTL(key, seconds)
-				conn.Write([]byte("TTL set\n"))
+				WriteResponse(conn, "TTL set\n")
 			} else {
-				conn.Write([]byte("Key not found... :(\n"))
+				WriteResponse(conn, "Key not found... :(")
 			}
 
 		case "EXIT":
-			conn.Write([]byte("bye... \n"))
+			WriteResponse(conn, "bye... ")
 			return
 
 		default:
-			conn.Write([]byte("Unknown command\n"))
+			WriteResponse(conn, "Unknown command")
 		}
 	}
+}
+
+func WriteResponse(conn net.Conn, msg string) {
+	conn.Write([]byte(msg + "\n"))
 }

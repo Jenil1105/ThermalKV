@@ -9,27 +9,43 @@ import (
 	"thermalkv/internal/store"
 )
 
-func Start(db *store.Store) {
+type Server struct {
+	Listener net.Listener
+	DB       *store.Store
+}
+
+func New(db *store.Store) (*Server, error) {
 	listener, err := net.Listen("tcp", ":8080")
 
 	if err != nil {
-		fmt.Println("Server error:", err)
-		return
+		return nil, err
 	}
+	return &Server{
+		Listener: listener,
+		DB:       db,
+	}, nil
+}
 
-	defer listener.Close()
+func (s *Server) Start() {
 
 	fmt.Println("ThermalKV server running on port 8080...")
 
 	for {
-		conn, err := listener.Accept()
+		conn, err := s.Listener.Accept()
 		if err != nil {
-			fmt.Println("Connection error:", err)
-			continue
+			fmt.Println("Accept stopped:", err)
+			return
 		}
 		fmt.Println("Client connected:", conn.RemoteAddr())
-		go HandleConnection(conn, db)
+		go HandleConnection(conn, s.DB)
 	}
+}
+
+func (s *Server) Shutdown() error {
+
+	fmt.Println("Stopping TCP listener...")
+	return s.Listener.Close()
+
 }
 
 func HandleConnection(conn net.Conn, db *store.Store) {
@@ -143,6 +159,7 @@ func HandleConnection(conn net.Conn, db *store.Store) {
 
 		case "EXIT":
 			WriteResponse(conn, "bye... ")
+			fmt.Println("Client disconnected: ", conn.RemoteAddr())
 			return
 
 		default:

@@ -27,6 +27,7 @@ func NewWAL() *WAL {
 func (w *WAL) Write(operation string, key string, value ...string) {
 	log := fmt.Sprintf("%s %s %s\n", operation, key, strings.Join(value, " "))
 	w.File.WriteString(log)
+	w.File.Sync()
 }
 
 func (w *WAL) Close() {

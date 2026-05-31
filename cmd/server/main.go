@@ -8,7 +8,10 @@ import (
 
 func main() {
 
-	db := store.NewStore()
+	wal := persistence.NewWAL()
+	defer wal.Close()
+
+	db := store.NewStore(wal)
 
 	snapshot := persistence.LoadSnapshot()
 	db.ImportData(snapshot)

@@ -17,15 +17,17 @@ type Store struct {
 	Mutex      sync.RWMutex
 	WriteCount int
 	ExpiryHeap ttl.MinHeap
+	WAL        *persistence.WAL
 }
 
 // NewStore
-func NewStore() *Store {
+func NewStore(wal *persistence.WAL) *Store {
 	h := ttl.MinHeap{}
 	heap.Init(&h)
 	return &Store{
 		Data:       make(map[string]model.Item),
 		ExpiryHeap: h,
+		WAL:        wal,
 	}
 }
 
@@ -37,11 +39,10 @@ func (s *Store) Set(key string, value string) {
 	s.Data[key] = model.Item{
 		Value: value,
 	}
-	persistence.WriteLog("SET", key, value)
-
-	s.Mutex.Unlock()
 
 	s.WriteCount++
+	s.Mutex.Unlock()
+	s.WAL.Write("SET", key, value)
 
 	if s.WriteCount >= 5 {
 		snapshot := s.ExportData()
@@ -90,11 +91,10 @@ func (s *Store) Delete(key string) {
 	s.Mutex.Lock()
 
 	delete(s.Data, key)
-	persistence.WriteLog("DEL", key)
-
-	s.Mutex.Unlock()
-
 	s.WriteCount++
+	s.Mutex.Unlock()
+	s.WAL.Write("DEL", key)
+
 	if s.WriteCount >= 5 {
 		snapshot := s.ExportData()
 		persistence.SaveSnapshot(snapshot)
@@ -123,7 +123,7 @@ func (s *Store) SetTTL(key string, seconds int) {
 		Expiry: expiry,
 	})
 
-	persistence.WriteLog("EXPIRE", key, strconv.FormatInt(expiry, 10))
+	s.WAL.Write("EXPIRE", key, strconv.FormatInt(expiry, 10))
 }
 
 // StartCleaner starts a background goroutine that periodically checks for expired keys and removes them from the store.
@@ -191,17 +191,26 @@ func (s *Store) Recover(logs []string) {
 			// no recovery action needed
 
 		case "EXPIRE":
+
+			if len(parts) < 3 {
+				continue
+			}
+
 			expiry, err := strconv.ParseInt(parts[2], 10, 64)
 			if err != nil {
 				continue
 			}
 			item, exists := s.Data[key]
-			if exists {
-				item.Expiry = expiry
-				s.Data[key] = item
-			} else {
-				return
+			if !exists {
+				continue
 			}
+			s.Data[key] = item
+			item.Expiry = expiry
+
+			heap.Push(&s.ExpiryHeap, ttl.ExpiryItem{
+				Key:    key,
+				Expiry: expiry,
+			})
 		}
 	}
 }
@@ -226,9 +235,21 @@ func (s *Store) ImportData(snapshot map[string]model.SnapshotItem) {
 	defer s.Mutex.Unlock()
 
 	for key, item := range snapshot {
+
+		if item.Expiry != 0 && time.Now().Unix() >= item.Expiry {
+			continue
+		}
+
 		s.Data[key] = model.Item{
 			Value:  item.Value,
 			Expiry: item.Expiry,
+		}
+
+		if item.Expiry != 0 {
+			heap.Push(&s.ExpiryHeap, ttl.ExpiryItem{
+				Key:    key,
+				Expiry: item.Expiry,
+			})
 		}
 	}
 }

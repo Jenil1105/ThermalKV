@@ -18,7 +18,12 @@ func (s *Store) Set(key string, value string) {
 
 	s.WriteCount++
 	s.Mutex.Unlock()
-	s.WAL.Write("SET", key, value)
+	err := s.WAL.Write("SET", key, value)
+
+	if err != nil {
+		fmt.Println("WAL write failed: ", err)
+		return
+	}
 
 	if s.WriteCount >= 5 {
 		snapshot := s.ExportData()
@@ -69,7 +74,11 @@ func (s *Store) Delete(key string) {
 	delete(s.Data, key)
 	s.WriteCount++
 	s.Mutex.Unlock()
-	s.WAL.Write("DEL", key)
+	err := s.WAL.Write("DEL", key)
+	if err != nil {
+		fmt.Println("WAL write failed: ", err)
+		return
+	}
 
 	if s.WriteCount >= 5 {
 		snapshot := s.ExportData()

@@ -12,7 +12,7 @@ import (
 
 func main() {
 
-	wal := persistence.NewWAL()
+	wal := persistence.NewWAL(true)
 	defer wal.Close()
 
 	db := store.NewStore(wal)

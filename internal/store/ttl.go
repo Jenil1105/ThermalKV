@@ -2,6 +2,7 @@ package store
 
 import (
 	"container/heap"
+	"fmt"
 	"strconv"
 	"thermalkv/internal/ttl"
 	"time"
@@ -27,5 +28,9 @@ func (s *Store) SetTTL(key string, seconds int) {
 		Expiry: expiry,
 	})
 
-	s.WAL.Write("EXPIRE", key, strconv.FormatInt(expiry, 10))
+	err := s.WAL.Write("EXPIRE", key, strconv.FormatInt(expiry, 10))
+	if err != nil {
+		fmt.Println("WAL write failed: ", err)
+		return
+	}
 }

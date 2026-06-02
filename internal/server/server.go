@@ -124,6 +124,21 @@ func HandleConnection(conn net.Conn, db *store.Store) {
 				WriteResponse(conn, "Key not found... :(")
 			}
 
+		case "COOL":
+			if len(parts) < 2 {
+				WriteResponse(conn, "Usage: COOL key")
+				continue
+			}
+
+			key := parts[1]
+			err := db.CoolKey(key)
+
+			if err != nil {
+				WriteResponse(conn, err.Error())
+				continue
+			}
+			WriteResponse(conn, "Moved to COOL storage")
+
 		case "COUNT":
 			count := db.Count()
 

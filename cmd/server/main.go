@@ -8,6 +8,7 @@ import (
 	"thermalkv/internal/persistence"
 	"thermalkv/internal/server"
 	"thermalkv/internal/store"
+	"thermalkv/internal/thermal"
 )
 
 func main() {
@@ -15,7 +16,9 @@ func main() {
 	wal := persistence.NewWAL(true)
 	defer wal.Close()
 
-	db := store.NewStore(wal)
+	manager := thermal.NewManager()
+
+	db := store.NewStore(wal, manager)
 
 	snapshot := persistence.LoadSnapshot()
 	db.ImportData(snapshot)

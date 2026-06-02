@@ -2,9 +2,11 @@ package store
 
 import (
 	"container/heap"
+	"fmt"
 	"sync"
 	"thermalkv/internal/model"
 	"thermalkv/internal/persistence"
+	"thermalkv/internal/thermal"
 	"thermalkv/internal/ttl"
 	"time"
 )
@@ -15,16 +17,18 @@ type Store struct {
 	WriteCount int
 	ExpiryHeap ttl.MinHeap
 	WAL        *persistence.WAL
+	Thermal    *thermal.Manager
 }
 
 // NewStore
-func NewStore(wal *persistence.WAL) *Store {
+func NewStore(wal *persistence.WAL, manager *thermal.Manager) *Store {
 	h := ttl.MinHeap{}
 	heap.Init(&h)
 	return &Store{
 		Data:       make(map[string]model.Item),
 		ExpiryHeap: h,
 		WAL:        wal,
+		Thermal:    manager,
 	}
 }
 
@@ -70,4 +74,24 @@ func (s *Store) GetWriteCount() int {
 
 	return s.WriteCount
 
+}
+
+func (s *Store) CoolKey(key string) error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	item, exists := s.Data[key]
+
+	if !exists {
+		return fmt.Errorf("key not found")
+	}
+	err := s.Thermal.MoveToCool(key, item)
+
+	if err != nil {
+		return err
+	}
+
+	delete(s.Data, key)
+
+	return nil
 }

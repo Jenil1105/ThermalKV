@@ -42,6 +42,39 @@ func (s *Store) Get(key string) (string, bool) {
 	item, exists := s.Data[key]
 
 	if !exists {
+
+		item, exists = s.Thermal.LoadFromCool(key)
+
+		if exists {
+
+			if item.Expiry != 0 &&
+				time.Now().Unix() > item.Expiry {
+
+				delete(
+					s.Thermal.ColdIndex,
+					key,
+				)
+
+				s.Mutex.RUnlock()
+				return "", false
+			}
+
+			s.Mutex.RUnlock()
+
+			s.Mutex.Lock()
+
+			s.Data[key] = item
+
+			delete(
+				s.Thermal.ColdIndex,
+				key,
+			)
+
+			s.Mutex.Unlock()
+
+			return item.Value, true
+		}
+
 		s.Mutex.RUnlock()
 		return "", false
 	}

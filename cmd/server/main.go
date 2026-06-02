@@ -13,7 +13,8 @@ import (
 
 func main() {
 
-	wal := persistence.NewWAL(true)
+	wal := persistence.NewWAL(false)
+	wal.StartSyncLoop()
 	defer wal.Close()
 
 	manager := thermal.NewManager()

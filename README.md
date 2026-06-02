@@ -1,88 +1,352 @@
 # ThermalKV
 
-ThermalKV is a small, thread-safe in-memory key-value store written in Go. It supports TTL-based expirations, periodic background cleanup, a write-ahead log (WAL), and periodic snapshotting to speed up recovery.
+ThermalKV is a high-performance key-value database written in Go that combines in-memory speed with durable storage mechanisms. It supports concurrent access, TTL-based expiration, write-ahead logging, snapshot persistence, and thermal storage concepts where data can be moved between hot (memory) and cold (disk) storage tiers.
+
+The project was built to explore core database internals such as storage engines, persistence, recovery, caching strategies, concurrency control, and data lifecycle management.
+
+---
 
 ## Features
 
-- In-memory key-value storage with `sync.RWMutex` protection
-- TTL support and a background cleaner that evicts expired keys
-- Write-ahead log (WAL) at `data/wal.log` for `SET`, `DEL`, and `EXPIRE` operations
-- Periodic snapshotting (`data/snapshot.dat`) after a fixed number of writes
-- Interactive REPL in `cmd/main.go` with basic commands
+* In-memory key-value storage with thread-safe access.
+* Per-key TTL (Time-To-Live) expiration.
+* Background expiration cleaner using a min-heap scheduler.
+* Write-Ahead Logging (WAL) for durability and crash recovery.
+* Snapshot persistence for faster startup and recovery.
+* Cold storage support for moving infrequently used data to disk.
+* Lazy restoration of cold data back into memory.
+* TCP server/client architecture.
+* Concurrent read and write operations using Go's synchronization primitives.
+* Graceful shutdown with persistence support.
 
-## Repository Structure
+---
 
-- `go.mod` - Go module declaration
-- `cmd/main.go` - Interactive REPL and startup flow (loads snapshot, replays WAL)
-- `internal/store/store.go` - Store implementation (Set, Get, Delete, SetTTL, StartCleaner, Recover, snapshot export/import)
-- `internal/persistence/persistence.go` - WAL and snapshot read/write helpers
-- `internal/model/types.go` - data model types for items and snapshots
-- `internal/ttl/heap.go` - min-heap used for efficiently tracking expirations
-- `data/` - runtime data directory where `wal.log` and `snapshot.dat` are stored
+## Architecture
 
-## Current Behavior / Startup Flow
+```text
+                 +----------------+
+                 |     Client     |
+                 +----------------+
+                          |
+                          v
+                 +----------------+
+                 |   TCP Server   |
+                 +----------------+
+                          |
+                          v
+                 +----------------+
+                 |     Store      |
+                 +----------------+
+                    |    |    |
+          +---------+    |    +---------+
+          |              |              |
+          v              v              v
+   +------------+ +------------+ +------------+
+   | TTL Heap   | |    WAL     | | Snapshot   |
+   +------------+ +------------+ +------------+
+                                        |
+                                        v
+                               +----------------+
+                               | Cold Storage   |
+                               |   (cold.dat)   |
+                               +----------------+
+```
 
-On startup, `cmd/main.go`:
+---
 
-1. Creates a new store with `store.NewStore()` and starts the background cleaner (`db.StartCleaner()`).
-2. Loads the on-disk snapshot with `persistence.LoadSnapshot()` and imports it via `db.ImportData(snapshot)`.
-3. Loads WAL entries with `persistence.LoadLogs()` and replays them using `db.Recover(logs)`.
-4. Enters an interactive REPL reading commands from stdin.
+## Storage Tiers
 
-The REPL supports the following commands:
+### Hot Storage
 
-- `SET <key> <value>` — store a key/value pair (appends `SET` to the WAL)
-- `GET <key>` — retrieve the value for a key
-- `DEL <key>` — remove a key from the store (appends `DEL` to the WAL)
-- `TTL <key> <seconds>` — set an expiration (appends `EXPIRE` to the WAL)
-- `EXIT` — exit the REPL
+* Stored entirely in memory.
+* Provides the lowest latency access.
+* Supports TTL expiration.
+* Handles the majority of read and write operations.
 
-## Persistence details
+### Cold Storage
 
-- WAL file path: `data/wal.log` (appended by `persistence.WriteLog`)
-- Snapshot file: `data/snapshot.dat` (written by `persistence.SaveSnapshot`)
-- Log entries include `SET <key> <value>`, `DEL <key>`, and `EXPIRE <key> <expiry-unix>`.
-- The store periodically saves a snapshot after a number of write operations (currently every 5 write operations). After saving a snapshot, the WAL is cleared to keep recovery fast.
+* Persisted on disk.
+* Used for data that has been manually cooled.
+* Reduces memory usage.
+* Supports lazy loading back into memory when accessed.
 
-## Store API (high level)
+### Future Thermal Vision
 
-- `Set(key string, value string)` — add or update a key-value pair (writes `SET` to WAL)
-- `Get(key string) (string, bool)` — return the value and existence flag (performs lazy expiration)
-- `Delete(key string)` — remove a key from the store (writes `DEL` to WAL)
-- `SetTTL(key string, seconds int)` — set key expiration in seconds (writes `EXPIRE` to WAL)
-- `StartCleaner()` — start the background cleaner goroutine
-- `Recover(logs []string)` — replay WAL entries into the store
-- `ExportData()` / `ImportData()` — snapshot export/import helpers used by persistence
+ThermalKV is designed with a thermal-storage architecture in mind:
 
-## Getting Started
+* Hot Keys → Frequently accessed keys kept in memory.
+* Warm Keys → Data stored on disk but indexed for faster retrieval.
+* Cold Keys → Rarely accessed data persisted on disk.
+* Automatic tier migration based on access frequency and inactivity.
+
+---
+
+## Key Components
+
+### Server
+
+`cmd/server/main.go`
+
+* Loads persisted data.
+* Replays WAL entries.
+* Starts background services.
+* Handles TCP connections.
+* Supports graceful shutdown.
+
+### Client
+
+`cmd/client/main.go`
+
+* Interactive command-line client.
+* Connects to the server over TCP.
+* Sends commands and displays responses.
+
+### Store
+
+`internal/store`
+
+Core database engine responsible for:
+
+* Set/Get/Delete operations.
+* TTL management.
+* Snapshot creation.
+* Recovery.
+* Cold storage interaction.
+
+### Persistence
+
+`internal/persistence`
+
+Handles:
+
+* WAL writes.
+* WAL recovery.
+* Snapshot export.
+* Snapshot import.
+
+### Thermal Manager
+
+`internal/thermal`
+
+Responsible for:
+
+* Moving keys into cold storage.
+* Maintaining cold storage metadata.
+* Reloading cooled keys into memory.
+
+### TTL Scheduler
+
+`internal/ttl`
+
+Implements:
+
+* Min-heap expiration queue.
+* Efficient expiration scheduling.
+* Cleaner wake-up coordination.
+
+---
+
+## Runtime Files
+
+| File                | Purpose              |
+| ------------------- | -------------------- |
+| `data/wal.log`      | Write-ahead log      |
+| `data/snapshot.dat` | Snapshot persistence |
+| `data/cold.dat`     | Cold storage data    |
+
+---
+
+## Supported Commands
+
+| Command               | Description                        |
+| --------------------- | ---------------------------------- |
+| `SET <key> <value>`   | Store or update a value            |
+| `GET <key>`           | Retrieve a value                   |
+| `DEL <key>`           | Delete a key                       |
+| `TTL <key> <seconds>` | Set expiration                     |
+| `COOL <key>`          | Move key into cold storage         |
+| `COUNT`               | Number of keys currently in memory |
+| `EXISTS <key>`        | Check if a key exists              |
+| `KEYS`                | List all keys                      |
+| `INFO`                | Store statistics                   |
+| `EXIT`                | Close client connection            |
+
+---
+
+## Example Session
+
+```text
+SET user1 jenil
+OK
+
+GET user1
+jenil
+
+TTL user1 30
+OK
+
+EXISTS user1
+true
+
+COOL user1
+OK
+
+GET user1
+jenil
+```
+
+The final `GET` restores the key from cold storage back into memory.
+
+---
+
+## Durability and Recovery
+
+ThermalKV uses two persistence mechanisms:
+
+### Write-Ahead Log (WAL)
+
+Every mutation operation is appended to:
+
+```text
+data/wal.log
+```
+
+This includes:
+
+* SET
+* DEL
+* EXPIRE
+
+The WAL ensures operations can be replayed after crashes or unexpected shutdowns.
+
+### Snapshots
+
+Periodic snapshots capture the full in-memory state and store it in:
+
+```text
+data/snapshot.dat
+```
+
+Snapshots significantly reduce recovery time by avoiding full WAL replay.
+
+---
+
+## Recovery Process
+
+On startup the server:
+
+1. Opens or creates the WAL file.
+2. Loads the latest snapshot.
+3. Imports snapshot data into memory.
+4. Replays WAL entries created after the snapshot.
+5. Discards expired records.
+6. Starts the TTL cleaner.
+
+This guarantees data consistency after restarts.
+
+---
+
+## Technical Highlights
+
+* Concurrent key-value store built in Go.
+* RWMutex-based synchronization.
+* Min-heap TTL scheduler.
+* Lazy expiration strategy.
+* Write-Ahead Logging (WAL).
+* Snapshot-based persistence.
+* Cold storage migration.
+* Lazy restoration of cooled data.
+* TCP client/server architecture.
+* Crash recovery through WAL replay.
+
+---
+
+## Project Structure
+
+```text
+ThermalKV/
+│
+├── cmd/
+│   ├── server/
+│   └── client/
+│
+├── internal/
+│   ├── model/
+│   ├── persistence/
+│   ├── store/
+│   ├── thermal/
+│   └── ttl/
+│
+├── data/
+│   ├── wal.log
+│   ├── snapshot.dat
+│   └── cold.dat
+│
+├── go.mod
+└── README.md
+```
+
+---
+
+## Build and Run
 
 ### Prerequisites
 
-- Go 1.26 (module declares `go 1.26.2`)
+* Go (1.26.2)
 
-### Build
+### Start Server
 
-```powershell
-cd D:/db/ThermalKV
-go build ./cmd
+```bash
+go run ./cmd/server
 ```
 
-### Run
+### Start Client
 
-```powershell
-go run ./cmd
+```bash
+go run ./cmd/client
 ```
 
-The program will load any existing `data/snapshot.dat` and replay `data/wal.log` entries on startup before presenting the prompt.
+### Sample Commands
 
-## Notes and Implementation Details
+```text
+SET name ThermalKV
+GET name
 
-- `Get` performs lazy expiration checks and will remove expired keys on access.
-- A min-heap (`internal/ttl`) is used to efficiently schedule expirations; `StartCleaner` sleeps until the next expiration.
-- Snapshots are simple text files (`key|value|expiry` per line) written to `data/snapshot.dat`.
-- After snapshotting, the WAL is truncated (cleared) to reduce recovery time.
+TTL name 60
 
-If you'd like, I can also:
+COUNT
 
-- Add example commands in the README and a quick script to seed `data/wal.log` for testing.
-- Add a `Makefile` or simple `build.sh`/`build.ps1` to simplify build/run steps.
+INFO
+
+EXIT
+```
+
+---
+
+## Current Status
+
+Implemented:
+
+* In-memory storage
+* TTL expiration
+* WAL persistence
+* Snapshot recovery
+* Cold storage
+* TCP server/client
+* Concurrent operations
+
+Planned:
+
+* Automatic hot-to-cold migration
+* Warm storage layer
+* Access-frequency tracking
+* Background compaction
+* Disk indexing
+* Replication support
+* Metrics and observability
+
+---
+
+## Why ThermalKV?
+
+ThermalKV is a learning-oriented database project that explores how modern storage systems manage durability, recovery, memory efficiency, and data temperature. It combines concepts commonly found in production databases—such as WALs, snapshots, caching layers, and storage tiering—into a compact Go implementation suitable for experimentation and extension.

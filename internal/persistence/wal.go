@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -14,6 +15,8 @@ type WAL struct {
 	Sync         bool
 	SyncInterval time.Duration
 	stopChan     chan struct{}
+
+	Mutex sync.Mutex
 }
 
 func NewWAL(sync bool) *WAL {
@@ -55,6 +58,9 @@ func (w *WAL) Write(operation string, key string, value ...string) error {
 
 	builder.WriteByte('\n')
 
+	w.Mutex.Lock()
+	defer w.Mutex.Unlock()
+
 	_, err := w.Writer.WriteString(builder.String())
 
 	return err
@@ -65,6 +71,10 @@ func (w *WAL) Close() {
 		if w.Sync {
 			close(w.stopChan)
 		}
+
+		w.Mutex.Lock()
+		defer w.Mutex.Unlock()
+
 		if w.Writer != nil {
 			w.Writer.Flush()
 		}
@@ -89,15 +99,23 @@ func (w *WAL) StartSyncLoop() {
 
 			case <-ticker.C:
 
+				w.Mutex.Lock()
+
 				w.Writer.Flush()
 				w.File.Sync()
+
+				w.Mutex.Unlock()
 
 			case <-w.stopChan:
 
 				ticker.Stop()
 
+				w.Mutex.Lock()
+
 				w.Writer.Flush()
 				w.File.Sync()
+
+				w.Mutex.Unlock()
 
 				return
 			}

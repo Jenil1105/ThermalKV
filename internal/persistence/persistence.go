@@ -46,21 +46,28 @@ func LoadLogs() []string {
 	return logs
 }
 
-func SaveSnapshot(data map[string]model.SnapshotItem) {
+func SaveSnapshot(data map[string]model.SnapshotItem) error {
 
 	file, err := os.Create("data/snapshot.dat")
 
 	if err != nil {
-		fmt.Println("Snapshot err", err)
-		return
+		return err
 	}
 
 	defer file.Close()
 
+	writer := bufio.NewWriter(file)
+	defer writer.Flush()
+
 	for key, item := range data {
 		line := fmt.Sprintf("%s|%s|%d\n", key, item.Value, item.Expiry)
-		file.WriteString(line)
+		_, err := writer.WriteString(line)
+
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 
 }
 

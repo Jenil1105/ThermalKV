@@ -9,6 +9,7 @@ import (
 	"thermalkv/internal/server"
 	"thermalkv/internal/store"
 	"thermalkv/internal/thermal"
+	"time"
 )
 
 func main() {
@@ -20,7 +21,7 @@ func main() {
 	manager := thermal.NewManager()
 
 	db := store.NewStore(wal, manager)
-
+	db.StartSnapshotLoop(60 * time.Second)
 	snapshot := persistence.LoadSnapshot()
 	db.ImportData(snapshot)
 

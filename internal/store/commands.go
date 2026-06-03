@@ -3,7 +3,6 @@ package store
 import (
 	"fmt"
 	"thermalkv/internal/model"
-	"thermalkv/internal/persistence"
 	"time"
 )
 
@@ -16,21 +15,12 @@ func (s *Store) Set(key string, value string) {
 		Value: value,
 	}
 
-	s.WriteCount++
 	s.Mutex.Unlock()
 	err := s.WAL.Write("SET", key, value)
 
 	if err != nil {
 		fmt.Println("WAL write failed: ", err)
 		return
-	}
-
-	if s.WriteCount >= 5 {
-		snapshot := s.ExportData()
-		persistence.SaveSnapshot(snapshot)
-		persistence.ClearWAL()
-		s.WriteCount = 0
-		fmt.Println("Snapshot saved...")
 	}
 
 }
@@ -105,7 +95,6 @@ func (s *Store) Delete(key string) {
 	s.Mutex.Lock()
 
 	delete(s.Data, key)
-	s.WriteCount++
 	s.Mutex.Unlock()
 	err := s.WAL.Write("DEL", key)
 	if err != nil {
@@ -113,13 +102,6 @@ func (s *Store) Delete(key string) {
 		return
 	}
 
-	if s.WriteCount >= 5 {
-		snapshot := s.ExportData()
-		persistence.SaveSnapshot(snapshot)
-		persistence.ClearWAL()
-		s.WriteCount = 0
-		fmt.Println("Snapshot saved...")
-	}
 }
 
 // Count the total number of keys

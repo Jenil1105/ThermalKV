@@ -14,7 +14,6 @@ import (
 type Store struct {
 	Data       map[string]model.Item
 	Mutex      sync.RWMutex
-	WriteCount int
 	ExpiryHeap ttl.MinHeap
 	WAL        *persistence.WAL
 	Thermal    *thermal.Manager
@@ -66,14 +65,6 @@ func (s *Store) StartCleaner() {
 			s.Mutex.Unlock()
 		}
 	}()
-}
-
-func (s *Store) GetWriteCount() int {
-	s.Mutex.RLock()
-	defer s.Mutex.RUnlock()
-
-	return s.WriteCount
-
 }
 
 func (s *Store) CoolKey(key string) error {

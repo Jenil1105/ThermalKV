@@ -45,6 +45,8 @@ func NewWAL(sync bool) *WAL {
 
 func (w *WAL) Write(operation string, key string, value ...string) error {
 
+	fmt.Println("WAL write called")
+
 	var builder strings.Builder
 
 	builder.WriteString(operation)
@@ -62,11 +64,19 @@ func (w *WAL) Write(operation string, key string, value ...string) error {
 	defer w.Mutex.Unlock()
 
 	_, err := w.Writer.WriteString(builder.String())
+	if err != nil {
+		return err
+	}
 
-	return err
+	if !w.Sync {
+		return w.Writer.Flush()
+	}
+
+	return nil
 }
 
 func (w *WAL) Close() {
+	fmt.Println("WAL CLOSED")
 	if w != nil {
 		if w.Sync {
 			close(w.stopChan)
@@ -121,4 +131,42 @@ func (w *WAL) StartSyncLoop() {
 			}
 		}
 	}()
+}
+
+func (w *WAL) Rotate() (string, error) {
+	w.Mutex.Lock()
+	defer w.Mutex.Unlock()
+
+	err := w.Writer.Flush()
+
+	if err != nil {
+		return "", err
+	}
+
+	err = w.File.Close()
+	if err != nil {
+		return "", err
+	}
+
+	rotatedFile := fmt.Sprintf("data/wal_%d.log", time.Now().UnixNano())
+
+	err = os.Rename("data/wal.log", rotatedFile)
+	if err != nil {
+		return "", err
+	}
+
+	newfile, err := os.OpenFile(
+		"data/wal.log",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		0644,
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	w.File = newfile
+	w.Writer = bufio.NewWriterSize(newfile, 64*1024)
+
+	return rotatedFile, nil
 }

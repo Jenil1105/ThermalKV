@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"thermalkv/internal/model"
@@ -29,20 +30,48 @@ func WriteLog(operation string, key string, value ...string) {
 }
 
 func LoadLogs() []string {
+	files, err := os.ReadDir("data")
+
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	var logs []string
+
+	for _, file := range files {
+		name := file.Name()
+
+		if strings.HasPrefix(name, "wal_") && strings.HasSuffix(name, ".log") {
+			path := filepath.Join("data", name)
+
+			f, err := os.Open(path)
+
+			if err != nil {
+				continue
+			}
+			scanner := bufio.NewScanner(f)
+
+			for scanner.Scan() {
+				logs = append(logs, scanner.Text())
+			}
+			f.Close()
+
+		}
+	}
 	file, err := os.Open("data/wal.log")
 
 	if err != nil {
-		fmt.Println("err opening file", err)
-		return nil
+		return logs
 	}
+
 	defer file.Close()
-	var logs []string
 
 	scanner := bufio.NewScanner(file)
-
 	for scanner.Scan() {
 		logs = append(logs, scanner.Text())
 	}
+
 	return logs
 }
 

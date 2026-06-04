@@ -29,6 +29,7 @@ func main() {
 	db.Recover(logs)
 
 	db.StartCleaner()
+	db.StartCoolingWorker()
 
 	srv, err := server.New(db)
 

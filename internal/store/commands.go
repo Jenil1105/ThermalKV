@@ -12,7 +12,8 @@ func (s *Store) Set(key string, value string) {
 	s.Mutex.Lock()
 
 	s.Data[key] = model.Item{
-		Value: value,
+		Value:          value,
+		LastAccessUnix: time.Now().Unix(),
 	}
 
 	s.Mutex.Unlock()
@@ -68,6 +69,8 @@ func (s *Store) Get(key string) (string, bool) {
 		s.Mutex.RUnlock()
 		return "", false
 	}
+
+	item.LastAccessUnix = time.Now().Unix()
 
 	// If item has expired, remove it and return as missing.
 	if item.Expiry != 0 && time.Now().After(time.Unix(item.Expiry, 0)) {

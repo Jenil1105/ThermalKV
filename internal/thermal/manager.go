@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"thermalkv/internal/model"
+	"time"
 )
 
 type ColdEntry struct {
@@ -96,8 +97,9 @@ func (m *Manager) LoadFromCool(key string) (model.Item, bool) {
 	expiry, _ := strconv.ParseInt(parts[2], 10, 64)
 
 	return model.Item{
-		Value:  parts[1],
-		Expiry: expiry,
+		Value:          parts[1],
+		Expiry:         expiry,
+		LastAccessUnix: time.Now().Unix(),
 	}, true
 
 }

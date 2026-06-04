@@ -86,3 +86,34 @@ func (s *Store) CoolKey(key string) error {
 
 	return nil
 }
+
+func (s *Store) StartCoolingWorker() {
+	go func() {
+		for {
+			time.Sleep(10 * time.Second)
+
+			now := time.Now().Unix()
+
+			var keysToCool []string
+
+			s.Mutex.RLock()
+
+			for key, item := range s.Data {
+				if now-item.LastAccessUnix > 60 {
+					keysToCool = append(keysToCool, key)
+				}
+			}
+
+			s.Mutex.RUnlock()
+
+			for _, key := range keysToCool {
+				err := s.CoolKey(key)
+
+				if err == nil {
+					fmt.Println("Auto cooled:", key)
+				}
+			}
+
+		}
+	}()
+}

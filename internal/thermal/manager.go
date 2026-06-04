@@ -100,6 +100,7 @@ func (m *Manager) LoadFromCool(key string) (model.Item, bool) {
 		Value:          parts[1],
 		Expiry:         expiry,
 		LastAccessUnix: time.Now().Unix(),
+		Size:           int64(len(parts[1])),
 	}, true
 
 }

@@ -169,7 +169,7 @@ func HandleConnection(conn net.Conn, db *store.Store) {
 			WriteResponse(conn, strings.Join(keys, ", "))
 
 		case "INFO":
-			info := fmt.Sprintf("Keys: %d :: Heap Entries: %d ", db.Count(), db.HeapSize())
+			info := fmt.Sprintf("Keys: %d :: HOT Memory: %d :: Max HOT Memory: %d :: Cooling Threshold: %d", db.Count(), db.HotMemory(), db.MaxHotMemory, db.CoolingThreshold)
 			WriteResponse(conn, info)
 
 		case "EXIT":

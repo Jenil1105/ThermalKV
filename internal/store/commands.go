@@ -9,11 +9,18 @@ import (
 // Set
 func (s *Store) Set(key string, value string) {
 
+	size := int64(len(value))
 	s.Mutex.Lock()
 
 	s.Data[key] = model.Item{
 		Value:          value,
 		LastAccessUnix: time.Now().Unix(),
+		Size:           size,
+	}
+	s.CurrentMemoryUsage += size
+
+	if s.CurrentMemoryUsage > s.MaxHotMemory {
+		go s.RunEmergencyCooling()
 	}
 
 	s.Mutex.Unlock()
@@ -55,6 +62,10 @@ func (s *Store) Get(key string) (string, bool) {
 			s.Mutex.Lock()
 
 			s.Data[key] = item
+			s.CurrentMemoryUsage += item.Size
+			if s.CurrentMemoryUsage > s.MaxHotMemory {
+				go s.RunEmergencyCooling()
+			}
 
 			delete(
 				s.Thermal.ColdIndex,
@@ -138,9 +149,9 @@ func (s *Store) Keys() []string {
 }
 
 // Get Heap size
-func (s *Store) HeapSize() int {
+func (s *Store) HotMemory() int64 {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
 
-	return len(s.ExpiryHeap)
+	return s.CurrentMemoryUsage
 }

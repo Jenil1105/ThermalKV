@@ -21,7 +21,7 @@ func main() {
 	manager := thermal.NewManager()
 
 	db := store.NewStore(wal, manager)
-	db.StartSnapshotLoop(2 * time.Minute)
+	db.StartSnapshotLoop(6 * time.Minute)
 	snapshot := persistence.LoadSnapshot()
 	db.ImportData(snapshot)
 

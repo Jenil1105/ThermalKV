@@ -4,6 +4,7 @@ type Item struct {
 	Value          string
 	Expiry         int64
 	LastAccessUnix int64
+	Size           int64
 }
 
 type SnapshotItem struct {

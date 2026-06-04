@@ -12,11 +12,14 @@ import (
 )
 
 type Store struct {
-	Data       map[string]model.Item
-	Mutex      sync.RWMutex
-	ExpiryHeap ttl.MinHeap
-	WAL        *persistence.WAL
-	Thermal    *thermal.Manager
+	Data               map[string]model.Item
+	CurrentMemoryUsage int64
+	MaxHotMemory       int64
+	CoolingThreshold   int64
+	Mutex              sync.RWMutex
+	ExpiryHeap         ttl.MinHeap
+	WAL                *persistence.WAL
+	Thermal            *thermal.Manager
 }
 
 // NewStore
@@ -24,10 +27,12 @@ func NewStore(wal *persistence.WAL, manager *thermal.Manager) *Store {
 	h := ttl.MinHeap{}
 	heap.Init(&h)
 	return &Store{
-		Data:       make(map[string]model.Item),
-		ExpiryHeap: h,
-		WAL:        wal,
-		Thermal:    manager,
+		Data:             make(map[string]model.Item),
+		MaxHotMemory:     100,
+		CoolingThreshold: 100000,
+		ExpiryHeap:       h,
+		WAL:              wal,
+		Thermal:          manager,
 	}
 }
 
@@ -72,6 +77,7 @@ func (s *Store) CoolKey(key string) error {
 	defer s.Mutex.Unlock()
 
 	item, exists := s.Data[key]
+	s.CurrentMemoryUsage -= item.Size
 
 	if !exists {
 		return fmt.Errorf("key not found")
@@ -90,7 +96,7 @@ func (s *Store) CoolKey(key string) error {
 func (s *Store) StartCoolingWorker() {
 	go func() {
 		for {
-			time.Sleep(10 * time.Second)
+			time.Sleep(500 * time.Second)
 
 			now := time.Now().Unix()
 
@@ -116,4 +122,53 @@ func (s *Store) StartCoolingWorker() {
 
 		}
 	}()
+}
+
+func (s *Store) CoolingScore(
+	item model.Item,
+) int64 {
+
+	idleTime := time.Now().Unix() - item.LastAccessUnix
+
+	return item.Size * idleTime
+}
+
+func (s *Store) RunEmergencyCooling() {
+
+	for {
+
+		if s.CurrentMemoryUsage <= s.MaxHotMemory {
+			return
+		}
+
+		var maxKey string
+		var maxScore int64
+
+		s.Mutex.RLock()
+
+		for key, item := range s.Data {
+			score := s.CoolingScore(item)
+
+			if score > maxScore {
+				maxScore = score
+				maxKey = key
+			}
+		}
+
+		s.Mutex.RUnlock()
+
+		if maxKey == "" {
+			return
+		}
+
+		err := s.CoolKey(maxKey)
+
+		if err != nil {
+			return
+		}
+
+		fmt.Println("Emerfency cooled:", maxKey, "Score:", maxScore)
+
+	}
+
 }

@@ -20,6 +20,7 @@ type Store struct {
 	ExpiryHeap         ttl.MinHeap
 	WAL                *persistence.WAL
 	Thermal            *thermal.Manager
+	CoolingInProgress  bool
 }
 
 // NewStore
@@ -27,12 +28,13 @@ func NewStore(wal *persistence.WAL, manager *thermal.Manager) *Store {
 	h := ttl.MinHeap{}
 	heap.Init(&h)
 	return &Store{
-		Data:             make(map[string]model.Item),
-		MaxHotMemory:     100,
-		CoolingThreshold: 100000,
-		ExpiryHeap:       h,
-		WAL:              wal,
-		Thermal:          manager,
+		Data:              make(map[string]model.Item),
+		MaxHotMemory:      100,
+		CoolingThreshold:  100000,
+		ExpiryHeap:        h,
+		WAL:               wal,
+		Thermal:           manager,
+		CoolingInProgress: false,
 	}
 }
 
@@ -134,6 +136,22 @@ func (s *Store) CoolingScore(
 }
 
 func (s *Store) RunEmergencyCooling() {
+
+	s.Mutex.Lock()
+
+	if s.CoolingInProgress {
+		s.Mutex.Unlock()
+		return
+	}
+
+	s.CoolingInProgress = true
+	s.Mutex.Unlock()
+
+	defer func() {
+		s.Mutex.Lock()
+		s.CoolingInProgress = false
+		s.Mutex.Unlock()
+	}()
 
 	for {
 

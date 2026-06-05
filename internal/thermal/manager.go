@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"thermalkv/internal/model"
 	"time"
 )
@@ -18,6 +19,7 @@ type ColdEntry struct {
 
 type Manager struct {
 	ColdIndex map[string]ColdEntry
+	Mutex     sync.RWMutex
 }
 
 func NewManager() *Manager {
@@ -27,6 +29,10 @@ func NewManager() *Manager {
 }
 
 func (m *Manager) MoveToCool(key string, item model.Item) error {
+
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
+
 	file, err := os.OpenFile(
 		"data/cold.dat",
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
@@ -61,6 +67,16 @@ func (m *Manager) MoveToCool(key string, item model.Item) error {
 }
 
 func (m *Manager) LoadFromCool(key string) (model.Item, bool) {
+
+	m.Mutex.RLock()
+	defer m.Mutex.RUnlock()
+
+	return m.LoadFromCoolNoLock(key)
+
+}
+
+func (m *Manager) LoadFromCoolNoLock(key string) (model.Item, bool) {
+
 	entry, exists := m.ColdIndex[key]
 
 	if !exists {
@@ -108,6 +124,10 @@ func (m *Manager) LoadFromCool(key string) (model.Item, bool) {
 func (m *Manager) AppendDelete(
 	key string,
 ) error {
+
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
+
 	file, err := os.OpenFile(
 		"data/cold.dat",
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
@@ -126,6 +146,10 @@ func (m *Manager) AppendDelete(
 }
 
 func (m *Manager) RecoverColdIndex() error {
+
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
+
 	file, err := os.Open(
 		"data/cold.dat",
 	)
@@ -178,4 +202,67 @@ func (m *Manager) RecoverColdIndex() error {
 
 	}
 	return scanner.Err()
+}
+
+func (m *Manager) Compact() error {
+
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
+	fmt.Println("Compaction Started...")
+
+	tempFile, err := os.Create("data/cold_new.dat")
+
+	if err != nil {
+		return err
+	}
+
+	defer tempFile.Close()
+
+	newIndex := make(map[string]ColdEntry)
+
+	var offset int64 = 0
+
+	for key := range m.ColdIndex {
+		item, exists := m.LoadFromCoolNoLock(key)
+		if !exists {
+			continue
+		}
+		record := fmt.Sprintf(
+			"%s|%s|%d\n",
+			key,
+			item.Value,
+			item.Expiry,
+		)
+		_, err := tempFile.WriteString(record)
+
+		if err != nil {
+			return err
+		}
+
+		newIndex[key] = ColdEntry{
+			Offset: int64(offset),
+			Expiry: item.Expiry,
+		}
+		offset += int64(len(record))
+	}
+
+	tempFile.Close()
+
+	// err = os.Remove("data/cold.dat")
+
+	// if err != nil {
+	// 	return err
+	// }
+
+	err = os.Rename("data/cold_new.dat", "data/cold.dat")
+
+	if err != nil {
+		return err
+	}
+
+	m.ColdIndex = newIndex
+
+	fmt.Println("Compaction completed")
+
+	return nil
 }

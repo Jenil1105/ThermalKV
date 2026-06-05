@@ -19,6 +19,11 @@ func main() {
 	defer wal.Close()
 
 	manager := thermal.NewManager()
+	err := manager.RecoverColdIndex()
+
+	if err != nil {
+		fmt.Println("Cold recovery failed:", err)
+	}
 
 	db := store.NewStore(wal, manager)
 	db.StartSnapshotLoop(6 * time.Minute)

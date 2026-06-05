@@ -112,10 +112,23 @@ func (s *Store) Get(key string) (string, bool) {
 // Delete
 func (s *Store) Delete(key string) {
 
-	s.Mutex.Lock()
+	if s.Exists(key) {
+		s.Mutex.Lock()
+		delete(s.Data, key)
+		s.Mutex.Unlock()
+	} else {
+		_, exists := s.Thermal.ColdIndex[key]
 
-	delete(s.Data, key)
-	s.Mutex.Unlock()
+		if exists {
+			err := s.Thermal.AppendDelete(key)
+			if err != nil {
+				return
+			}
+			delete(s.Thermal.ColdIndex, key)
+			return
+		}
+	}
+
 	err := s.WAL.Write("DEL", key)
 	if err != nil {
 		fmt.Println("WAL write failed: ", err)

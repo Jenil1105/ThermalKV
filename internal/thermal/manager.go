@@ -104,3 +104,78 @@ func (m *Manager) LoadFromCool(key string) (model.Item, bool) {
 	}, true
 
 }
+
+func (m *Manager) AppendDelete(
+	key string,
+) error {
+	file, err := os.OpenFile(
+		"data/cold.dat",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		0644,
+	)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	record := fmt.Sprintf("DEL|%s\n", key)
+
+	_, err = file.WriteString(record)
+
+	return err
+}
+
+func (m *Manager) RecoverColdIndex() error {
+	file, err := os.Open(
+		"data/cold.dat",
+	)
+	if err != nil {
+		return nil
+	}
+
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var offset int64 = 0
+
+	now := time.Now().Unix()
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		parts := strings.Split(line, "|")
+
+		if len(parts) == 2 && parts[0] == "DEL" {
+			delete(m.ColdIndex, parts[1])
+			offset += int64(len(line) + 1)
+			continue
+		}
+
+		if len(parts) < 3 {
+			offset += int64(len(line) + 1)
+			continue
+		}
+
+		key := parts[0]
+
+		expiry, err := strconv.ParseInt(parts[2], 10, 64)
+
+		if err != nil {
+			offset += int64(len(line) + 1)
+			continue
+		}
+
+		if expiry != 0 && expiry < now {
+			offset += int64(len(line) + 1)
+			continue
+		}
+
+		m.ColdIndex[key] = ColdEntry{
+			Offset: offset,
+			Expiry: expiry,
+		}
+		offset += int64(len(line) + 1)
+
+	}
+	return scanner.Err()
+}

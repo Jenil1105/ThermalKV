@@ -29,8 +29,8 @@ func WriteLog(operation string, key string, value ...string) {
 
 }
 
-func LoadLogs() []string {
-	files, err := os.ReadDir("data")
+func LoadLogsFromDir(dir string) []string {
+	files, err := os.ReadDir(dir)
 
 	if err != nil {
 		fmt.Println(err)
@@ -43,7 +43,7 @@ func LoadLogs() []string {
 		name := file.Name()
 
 		if strings.HasPrefix(name, "wal_") && strings.HasSuffix(name, ".log") {
-			path := filepath.Join("data", name)
+			path := filepath.Join(dir, name)
 
 			f, err := os.Open(path)
 
@@ -59,7 +59,7 @@ func LoadLogs() []string {
 
 		}
 	}
-	file, err := os.Open("data/wal.log")
+	file, err := os.Open(filepath.Join(dir, "wal.log"))
 
 	if err != nil {
 		return logs
@@ -73,6 +73,10 @@ func LoadLogs() []string {
 	}
 
 	return logs
+}
+
+func LoadLogs() []string {
+	return LoadLogsFromDir("data")
 }
 
 func SaveSnapshot(data map[string]model.SnapshotItem) error {

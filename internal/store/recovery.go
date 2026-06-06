@@ -58,8 +58,8 @@ func (s *Store) Recover(logs []string) {
 			if !exists {
 				continue
 			}
-			s.Data[key] = item
 			item.Expiry = expiry
+			s.Data[key] = item
 
 			heap.Push(&s.ExpiryHeap, ttl.ExpiryItem{
 				Key:    key,

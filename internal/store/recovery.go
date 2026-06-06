@@ -6,6 +6,7 @@ import (
 	"strings"
 	"thermalkv/internal/model"
 	"thermalkv/internal/ttl"
+	"time"
 )
 
 // Recover replays the given logs to restore the store's state after a restart.
@@ -28,13 +29,20 @@ func (s *Store) Recover(logs []string) {
 			}
 
 			value := parts[2]
-			s.Data[key] = model.Item{Value: value}
+			size := int64(len(value))
+			s.Data[key] = model.Item{
+				Value:          value,
+				LastAccessUnix: time.Now().Unix(),
+				Size:           size,
+			}
+			s.CurrentMemoryUsage += size
 
 		case "DEL":
-			delete(s.Data, key)
 
-		case "GET":
-			// no recovery action needed
+			if s.Exists(key) {
+				s.CurrentMemoryUsage -= s.Data[key].Size
+				delete(s.Data, key)
+			}
 
 		case "EXPIRE":
 

@@ -25,7 +25,7 @@ func (s *Store) StartCoolingWorker() {
 
 			for _, key := range keysToCool {
 				err := s.CoolKey(key)
-
+				s.TotalCoolings++
 				if err == nil {
 					fmt.Println("Auto cooled:", key)
 				}
@@ -89,6 +89,7 @@ func (s *Store) RunEmergencyCooling() {
 		}
 
 		err := s.CoolKey(maxKey)
+		s.TotalCoolings++
 
 		if err != nil {
 			return

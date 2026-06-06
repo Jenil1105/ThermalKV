@@ -3,6 +3,7 @@ package store
 import (
 	"container/heap"
 	"fmt"
+	"os"
 	"sync"
 	"thermalkv/internal/model"
 	"thermalkv/internal/persistence"
@@ -21,6 +22,9 @@ type Store struct {
 	WAL                *persistence.WAL
 	Thermal            *thermal.Manager
 	CoolingInProgress  bool
+	TotalPromotions    int64
+	TotalCompactions   int64
+	TotalCoolings      int64
 }
 
 // NewStore
@@ -93,4 +97,49 @@ func (s *Store) CoolKey(key string) error {
 	delete(s.Data, key)
 
 	return nil
+}
+
+func (s *Store) GetInfo() []string {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+
+	info := []string{
+		"===== ThermalKV Info =====",
+		fmt.Sprintf(
+			"HOT Keys           : %d",
+			len(s.Data),
+		),
+		fmt.Sprintf(
+			"COOL Keys          : %d",
+			len(s.Thermal.ColdIndex),
+		),
+		fmt.Sprintf(
+			"HOT Memory Usage   : %d bytes",
+			s.CurrentMemoryUsage,
+		),
+		fmt.Sprintf(
+			"Max HOT Memory     : %d bytes",
+			s.MaxHotMemory,
+		),
+		fmt.Sprintf(
+			"Cooling Threshold  : %d",
+			s.CoolingThreshold,
+		),
+		fmt.Sprintf(
+			"Cold File Size     : %d",
+			GetColdFileSize(),
+		),
+	}
+
+	return info
+
+}
+
+func GetColdFileSize() int64 {
+	fileInfo, err := os.Stat("data/cold.dat")
+
+	if err != nil {
+		return 0
+	}
+	return fileInfo.Size()
 }

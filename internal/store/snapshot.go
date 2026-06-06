@@ -32,10 +32,16 @@ func (s *Store) ImportData(snapshot map[string]model.SnapshotItem) {
 			continue
 		}
 
+		size := int64(len(item.Value))
+
 		s.Data[key] = model.Item{
-			Value:  item.Value,
-			Expiry: item.Expiry,
+			Value:          item.Value,
+			Expiry:         item.Expiry,
+			Size:           size,
+			LastAccessUnix: time.Now().Unix(),
 		}
+
+		s.CurrentMemoryUsage += size
 
 		if item.Expiry != 0 {
 			heap.Push(&s.ExpiryHeap, ttl.ExpiryItem{

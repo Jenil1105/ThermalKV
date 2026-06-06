@@ -42,14 +42,21 @@ func main() {
 		}
 
 		conn.Write([]byte(text + "\n"))
-		response, err := serverReader.ReadString('\n')
 
-		if err != nil {
-			fmt.Println("Server disconnected")
-			return
+		for {
+			response, err := serverReader.ReadString('\n')
+			if err != nil {
+				fmt.Println("Server Disconnected", err)
+				return
+			}
+			response = strings.TrimSpace(response)
+
+			if response == "__END_RESPONSE__" {
+				break
+			}
+			fmt.Println(response)
+
 		}
-
-		fmt.Print(response)
 
 		if strings.ToUpper(text) == "EXIT" {
 			return

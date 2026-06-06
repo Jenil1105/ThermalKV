@@ -26,6 +26,8 @@ func New(db *store.Store) (*Server, error) {
 	}, nil
 }
 
+const EndMarker = "__END_RESPONSE__"
+
 func (s *Server) Start() {
 
 	fmt.Println("ThermalKV server running on port 8080...")
@@ -169,8 +171,7 @@ func HandleConnection(conn net.Conn, db *store.Store) {
 			WriteResponse(conn, strings.Join(keys, ", "))
 
 		case "INFO":
-			info := fmt.Sprintf("Keys: %d :: HOT Memory: %d :: Max HOT Memory: %d :: Cooling Threshold: %d", db.Count(), db.HotMemory(), db.MaxHotMemory, db.CoolingThreshold)
-			WriteResponse(conn, info)
+			WriteResponse(conn, db.GetInfo()...)
 
 		case "EXIT":
 			WriteResponse(conn, "bye... ")
@@ -183,6 +184,14 @@ func HandleConnection(conn net.Conn, db *store.Store) {
 	}
 }
 
-func WriteResponse(conn net.Conn, msg string) {
-	conn.Write([]byte(msg + "\n"))
+func WriteResponse(
+	conn net.Conn,
+	lines ...string,
+) {
+	for _, line := range lines {
+		conn.Write([]byte(line + "\n"))
+	}
+
+	conn.Write([]byte(EndMarker + "\n"))
+
 }

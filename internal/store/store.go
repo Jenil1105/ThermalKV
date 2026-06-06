@@ -22,9 +22,6 @@ type Store struct {
 	WAL                *persistence.WAL
 	Thermal            *thermal.Manager
 	CoolingInProgress  bool
-	TotalPromotions    int64
-	TotalCompactions   int64
-	TotalCoolings      int64
 }
 
 // NewStore

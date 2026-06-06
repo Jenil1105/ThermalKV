@@ -19,10 +19,10 @@ type WAL struct {
 	Mutex sync.Mutex
 }
 
-func NewWAL(sync bool) *WAL {
+func NewWAL(path string, sync bool) *WAL {
 
 	file, err := os.OpenFile(
-		"data/wal.log",
+		path,
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
 		0644,
 	)
@@ -44,8 +44,6 @@ func NewWAL(sync bool) *WAL {
 }
 
 func (w *WAL) Write(operation string, key string, value ...string) error {
-
-	fmt.Println("WAL write called")
 
 	var builder strings.Builder
 
@@ -76,7 +74,7 @@ func (w *WAL) Write(operation string, key string, value ...string) error {
 }
 
 func (w *WAL) Close() {
-	fmt.Println("WAL CLOSED")
+
 	if w != nil {
 		if w.Sync {
 			close(w.stopChan)

@@ -1,7 +1,6 @@
 package store
 
 import (
-	"fmt"
 	"thermalkv/internal/model"
 	"time"
 )
@@ -24,11 +23,7 @@ func (s *Store) StartCoolingWorker() {
 			s.Mutex.RUnlock()
 
 			for _, key := range keysToCool {
-				err := s.CoolKey(key)
-				s.TotalCoolings++
-				if err == nil {
-					fmt.Println("Auto cooled:", key)
-				}
+				s.CoolKey(key)
 			}
 
 		}
@@ -89,13 +84,10 @@ func (s *Store) RunEmergencyCooling() {
 		}
 
 		err := s.CoolKey(maxKey)
-		s.TotalCoolings++
 
 		if err != nil {
 			return
 		}
-
-		fmt.Println("Emerfency cooled:", maxKey, "Score:", maxScore)
 
 	}
 

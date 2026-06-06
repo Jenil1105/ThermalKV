@@ -88,6 +88,7 @@ func (s *Store) Get(key string) (string, bool) {
 	}
 
 	item.LastAccessUnix = time.Now().Unix()
+	s.Data[key] = item
 
 	// If item has expired, remove it and return as missing.
 	if item.Expiry != 0 && time.Now().After(time.Unix(item.Expiry, 0)) {

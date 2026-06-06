@@ -14,7 +14,7 @@ import (
 
 func main() {
 
-	wal := persistence.NewWAL(false)
+	wal := persistence.NewWAL("data/wal.log", false)
 	wal.StartSyncLoop()
 	defer wal.Close()
 

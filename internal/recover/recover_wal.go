@@ -1,16 +1,18 @@
-package store
+package recover
 
 import (
 	"container/heap"
 	"strconv"
 	"strings"
 	"thermalkv/internal/model"
+	"thermalkv/internal/persistence/walpkg"
+	"thermalkv/internal/store"
 	"thermalkv/internal/ttl"
 	"time"
 )
 
 // Recover replays the given logs to restore the store's state after a restart.
-func (s *Store) Recover(logs []string) {
+func StoreLogs(s *store.Store, logs []string) {
 	for _, log := range logs {
 		parts := strings.Fields(log)
 
@@ -67,4 +69,11 @@ func (s *Store) Recover(logs []string) {
 			})
 		}
 	}
+}
+
+func RecoverWAL(s *store.Store, dir string) {
+
+	logs := walpkg.LoadLogs(dir)
+	StoreLogs(s, logs)
+
 }

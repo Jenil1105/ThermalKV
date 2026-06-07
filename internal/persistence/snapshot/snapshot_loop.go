@@ -1,13 +1,13 @@
-package store
+package snapshot
 
 import (
 	"fmt"
 	"os"
-	"thermalkv/internal/persistence"
+	"thermalkv/internal/store"
 	"time"
 )
 
-func (s *Store) StartSnapshotLoop(interval time.Duration) {
+func StartSnapshotLoop(s *store.Store, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
 	go func() {
@@ -18,8 +18,8 @@ func (s *Store) StartSnapshotLoop(interval time.Duration) {
 				continue
 			}
 
-			snapshot := s.ExportData()
-			err = persistence.SaveSnapshot(snapshot)
+			snap := s.ExportData()
+			err = SaveSnapshot(snap)
 
 			if err != nil {
 				fmt.Println("Snapshout error: ", err)

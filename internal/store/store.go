@@ -2,14 +2,11 @@ package store
 
 import (
 	"container/heap"
-	"fmt"
-	"os"
 	"sync"
+	"thermalkv/internal/coldstore"
 	"thermalkv/internal/model"
-	"thermalkv/internal/persistence"
-	"thermalkv/internal/thermal"
+	"thermalkv/internal/persistence/walpkg"
 	"thermalkv/internal/ttl"
-	"time"
 )
 
 type Store struct {
@@ -19,13 +16,13 @@ type Store struct {
 	CoolingThreshold   int64
 	Mutex              sync.RWMutex
 	ExpiryHeap         ttl.MinHeap
-	WAL                *persistence.WAL
-	Thermal            *thermal.Manager
+	WAL                *walpkg.WAL
+	Thermal            *coldstore.Manager
 	CoolingInProgress  bool
 }
 
 // NewStore
-func NewStore(wal *persistence.WAL, manager *thermal.Manager) *Store {
+func NewStore(wal *walpkg.WAL, manager *coldstore.Manager) *Store {
 	h := ttl.MinHeap{}
 	heap.Init(&h)
 	return &Store{
@@ -37,106 +34,4 @@ func NewStore(wal *persistence.WAL, manager *thermal.Manager) *Store {
 		Thermal:           manager,
 		CoolingInProgress: false,
 	}
-}
-
-// StartCleaner starts a background goroutine that periodically checks for expired keys and removes them from the store.
-func (s *Store) StartCleaner() {
-	go func() {
-		for {
-			s.Mutex.Lock()
-
-			if len(s.ExpiryHeap) == 0 {
-				s.Mutex.Unlock()
-				time.Sleep(1 * time.Second)
-				continue
-			}
-
-			top := s.ExpiryHeap[0]
-			now := time.Now().Unix()
-
-			if top.Expiry > now {
-				sleepDuration := time.Duration(top.Expiry-now) * time.Second
-				s.Mutex.Unlock()
-				time.Sleep(sleepDuration)
-				continue
-			}
-
-			expired := heap.Pop(&s.ExpiryHeap).(ttl.ExpiryItem)
-
-			item, exists := s.Data[expired.Key]
-
-			if exists {
-				if item.Expiry == expired.Expiry {
-					delete(s.Data, expired.Key)
-				}
-			}
-			s.Mutex.Unlock()
-		}
-	}()
-}
-
-func (s *Store) CoolKey(key string) error {
-	s.Mutex.Lock()
-	defer s.Mutex.Unlock()
-
-	item, exists := s.Data[key]
-	s.CurrentMemoryUsage -= item.Size
-
-	if !exists {
-		return fmt.Errorf("key not found")
-	}
-	err := s.Thermal.MoveToCool(key, item)
-
-	if err != nil {
-		return err
-	}
-
-	delete(s.Data, key)
-
-	return nil
-}
-
-func (s *Store) GetInfo() []string {
-	s.Mutex.RLock()
-	defer s.Mutex.RUnlock()
-
-	info := []string{
-		"===== ThermalKV Info =====",
-		fmt.Sprintf(
-			"HOT Keys           : %d",
-			len(s.Data),
-		),
-		fmt.Sprintf(
-			"COOL Keys          : %d",
-			len(s.Thermal.ColdIndex),
-		),
-		fmt.Sprintf(
-			"HOT Memory Usage   : %d bytes",
-			s.CurrentMemoryUsage,
-		),
-		fmt.Sprintf(
-			"Max HOT Memory     : %d bytes",
-			s.MaxHotMemory,
-		),
-		fmt.Sprintf(
-			"Cooling Threshold  : %d",
-			s.CoolingThreshold,
-		),
-		fmt.Sprintf(
-			"Cold File Size     : %d",
-			GetColdFileSize(),
-		),
-	}
-
-	return info
-
-}
-
-func GetColdFileSize() int64 {
-	fileInfo, err := os.Stat("data/cold.dat")
-
-	if err != nil {
-		return 0
-	}
-	return fileInfo.Size()
 }

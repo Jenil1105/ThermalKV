@@ -5,33 +5,34 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"thermalkv/internal/persistence"
+	"thermalkv/internal/coldstore"
+	"thermalkv/internal/persistence/snapshot"
+	"thermalkv/internal/persistence/walpkg"
+	"thermalkv/internal/recover"
 	"thermalkv/internal/server"
 	"thermalkv/internal/store"
-	"thermalkv/internal/thermal"
 	"time"
 )
 
 func main() {
 
-	wal := persistence.NewWAL("data/wal.log", false)
+	wal := walpkg.NewWAL("data/wal.log", false)
 	wal.StartSyncLoop()
 	defer wal.Close()
 
-	manager := thermal.NewManager()
-	err := manager.RecoverColdIndex()
+	manager := coldstore.NewManager()
+	err := recover.RecoverColdIndex(manager)
 
 	if err != nil {
 		fmt.Println("Cold recovery failed:", err)
 	}
 
 	db := store.NewStore(wal, manager)
-	db.StartSnapshotLoop(6 * time.Minute)
-	snapshot := persistence.LoadSnapshot()
-	db.ImportData(snapshot)
+	snapshot.StartSnapshotLoop(db, 6*time.Minute)
 
-	logs := persistence.LoadLogs()
-	db.Recover(logs)
+	recover.RecoverSnapshot(db, "data/snapshot.dat")
+
+	recover.RecoverWAL(db, "data")
 
 	db.StartCleaner()
 	db.StartCoolingWorker()
@@ -51,8 +52,8 @@ func main() {
 	<-sigChan
 
 	fmt.Println("Shutting down...")
-	snapshot = db.ExportData()
-	persistence.SaveSnapshot(snapshot)
+	// snap = db.ExportData()
+	// snapshot.SaveSnapshot(snap)
 	srv.Shutdown()
 	wal.Close()
 	fmt.Println("Shutdown complete")

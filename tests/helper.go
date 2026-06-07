@@ -3,10 +3,9 @@ package tests
 import (
 	"os"
 	"testing"
-
-	"thermalkv/internal/persistence"
+	"thermalkv/internal/coldstore"
+	"thermalkv/internal/persistence/walpkg"
 	"thermalkv/internal/store"
-	"thermalkv/internal/thermal"
 )
 
 func NewTestStore(t *testing.T) *store.Store {
@@ -24,12 +23,12 @@ func NewTestStore(t *testing.T) *store.Store {
 		t.Fatal(err)
 	}
 
-	wal := persistence.NewWAL(
+	wal := walpkg.NewWAL(
 		"tests/testdata/wal.log",
 		false,
 	)
 
-	manager := thermal.NewManager()
+	manager := coldstore.NewManager()
 
 	db := store.NewStore(
 		wal,

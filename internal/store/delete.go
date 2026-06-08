@@ -9,14 +9,14 @@ func (s *Store) Delete(key string) {
 		delete(s.Data, key)
 		s.Mutex.Unlock()
 	} else {
-		_, exists := s.Thermal.ColdIndex[key]
+		_, exists := s.Thermal.ColdIndex.ColdIndex[key]
 
 		if exists {
 			err := s.Thermal.AppendDelete(key)
 			if err != nil {
 				return
 			}
-			delete(s.Thermal.ColdIndex, key)
+			delete(s.Thermal.ColdIndex.ColdIndex, key)
 			return
 		}
 	}

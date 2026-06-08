@@ -17,7 +17,7 @@ func (s *Store) GetInfo() []string {
 		),
 		fmt.Sprintf(
 			"COOL Keys          : %d",
-			len(s.Thermal.ColdIndex),
+			len(s.Thermal.ColdIndex.ColdIndex),
 		),
 		fmt.Sprintf(
 			"HOT Memory Usage   : %d bytes",

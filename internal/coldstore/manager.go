@@ -3,28 +3,29 @@ package coldstore
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"thermalkv/internal/coldstore/icetray"
+	"thermalkv/internal/coldstore/index"
 	"thermalkv/internal/model"
 	"time"
 )
 
-type ColdEntry struct {
-	Offset int64
-	Expiry int64
-}
-
 type Manager struct {
-	ColdIndex map[string]ColdEntry
+	ColdIndex *index.ColdIndex
+	IceTray   *icetray.IceTray
 	Mutex     sync.RWMutex
 }
 
 func NewManager() *Manager {
+	newtray := icetray.NewIceTray("data/cold.dat")
+	newcoldindex := index.NewColdIndex()
+
 	return &Manager{
-		ColdIndex: make(map[string]ColdEntry),
+		ColdIndex: newcoldindex,
+		IceTray:   newtray,
 	}
 }
 
@@ -33,36 +34,16 @@ func (m *Manager) MoveToCool(key string, item model.Item) error {
 	m.Mutex.Lock()
 	defer m.Mutex.Unlock()
 
-	file, err := os.OpenFile(
-		"data/cold.dat",
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
-		0644,
-	)
+	iceCube := fmt.Sprintf("%s|%s|%d\n", key, item.Value, item.Expiry)
+
+	offset, err := m.IceTray.StoreCube(iceCube)
 
 	if err != nil {
 		return err
 	}
 
-	defer file.Close()
+	m.ColdIndex.AddColdIndex(key, offset, item.Expiry)
 
-	offset, err := file.Seek(0, io.SeekEnd)
-
-	if err != nil {
-		return err
-	}
-
-	record := fmt.Sprintf("%s|%s|%d\n", key, item.Value, item.Expiry)
-
-	_, err = file.WriteString(record)
-
-	if err != nil {
-		return err
-	}
-
-	m.ColdIndex[key] = ColdEntry{
-		Offset: offset,
-		Expiry: item.Expiry,
-	}
 	return nil
 }
 
@@ -77,7 +58,7 @@ func (m *Manager) LoadFromCool(key string) (model.Item, bool) {
 
 func (m *Manager) LoadFromCoolNoLock(key string) (model.Item, bool) {
 
-	entry, exists := m.ColdIndex[key]
+	entry, exists := m.ColdIndex.ColdIndex[key]
 
 	if !exists {
 		return model.Item{}, false
@@ -159,11 +140,11 @@ func (m *Manager) Compact() error {
 
 	defer tempFile.Close()
 
-	newIndex := make(map[string]ColdEntry)
+	newIndex := make(map[string]index.ColdEntry)
 
 	var offset int64 = 0
 
-	for key := range m.ColdIndex {
+	for key := range m.ColdIndex.ColdIndex {
 		item, exists := m.LoadFromCoolNoLock(key)
 		if !exists {
 			continue
@@ -180,7 +161,7 @@ func (m *Manager) Compact() error {
 			return err
 		}
 
-		newIndex[key] = ColdEntry{
+		newIndex[key] = index.ColdEntry{
 			Offset: int64(offset),
 			Expiry: item.Expiry,
 		}
@@ -201,7 +182,7 @@ func (m *Manager) Compact() error {
 		return err
 	}
 
-	m.ColdIndex = newIndex
+	m.ColdIndex.ColdIndex = newIndex
 
 	fmt.Println("Compaction completed")
 

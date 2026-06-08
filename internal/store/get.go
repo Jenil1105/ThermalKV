@@ -16,7 +16,7 @@ func (s *Store) Get(key string) (string, bool) {
 			if item.Expiry != 0 &&
 				time.Now().Unix() > item.Expiry {
 
-				delete(s.Thermal.ColdIndex, key)
+				delete(s.Thermal.ColdIndex.ColdIndex, key)
 
 				s.Mutex.RUnlock() // ----->
 				return "", false
@@ -32,7 +32,7 @@ func (s *Store) Get(key string) (string, bool) {
 				go s.RunEmergencyCooling()
 			}
 
-			delete(s.Thermal.ColdIndex, key)
+			delete(s.Thermal.ColdIndex.ColdIndex, key)
 
 			s.Mutex.Unlock() // -----/>
 

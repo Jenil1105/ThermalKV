@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"thermalkv/internal/coldstore"
+	"thermalkv/internal/coldstore/index"
 	"time"
 )
 
@@ -34,7 +35,7 @@ func RecoverColdIndex(m *coldstore.Manager) error {
 		parts := strings.Split(line, "|")
 
 		if len(parts) == 2 && parts[0] == "DEL" {
-			delete(m.ColdIndex, parts[1])
+			delete(m.ColdIndex.ColdIndex, parts[1])
 			offset += int64(len(line) + 1)
 			continue
 		}
@@ -58,7 +59,7 @@ func RecoverColdIndex(m *coldstore.Manager) error {
 			continue
 		}
 
-		m.ColdIndex[key] = coldstore.ColdEntry{
+		m.ColdIndex.ColdIndex[key] = index.ColdEntry{
 			Offset: offset,
 			Expiry: expiry,
 		}

@@ -6,14 +6,13 @@ import (
 	"strconv"
 	"strings"
 	"thermalkv/internal/coldstore"
-	"thermalkv/internal/coldstore/index"
 	"time"
 )
 
 func RecoverColdIndex(m *coldstore.Manager) error {
 
-	m.Mutex.Lock()
-	defer m.Mutex.Unlock()
+	m.ColdStore.Lock()
+	defer m.ColdStore.Unlock()
 
 	file, err := os.Open(
 		"data/cold.dat",
@@ -35,7 +34,7 @@ func RecoverColdIndex(m *coldstore.Manager) error {
 		parts := strings.Split(line, "|")
 
 		if len(parts) == 2 && parts[0] == "DEL" {
-			delete(m.ColdIndex.ColdIndex, parts[1])
+			m.DeleteIndex(parts[1])
 			offset += int64(len(line) + 1)
 			continue
 		}
@@ -59,10 +58,7 @@ func RecoverColdIndex(m *coldstore.Manager) error {
 			continue
 		}
 
-		m.ColdIndex.ColdIndex[key] = index.ColdEntry{
-			Offset: offset,
-			Expiry: expiry,
-		}
+		m.AddIndex(key, offset, expiry)
 		offset += int64(len(line) + 1)
 
 	}

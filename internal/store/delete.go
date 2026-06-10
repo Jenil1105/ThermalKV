@@ -9,14 +9,19 @@ func (s *Store) Delete(key string) {
 		delete(s.Data, key)
 		s.Mutex.Unlock()
 	} else {
-		_, exists := s.Thermal.ColdIndex.ColdIndex[key]
+		exists := s.Thermal.HaveIndex(key)
 
 		if exists {
 			err := s.Thermal.AppendDelete(key)
 			if err != nil {
 				return
 			}
-			delete(s.Thermal.ColdIndex.ColdIndex, key)
+			s.Thermal.DeleteIndex(key)
+
+			err = s.WAL.Write("DEL", key)
+			if err != nil {
+				fmt.Println("WAL write failed: ", err)
+			}
 			return
 		}
 	}

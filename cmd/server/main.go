@@ -21,19 +21,17 @@ func main() {
 	defer wal.Close()
 
 	manager := coldstore.NewManager()
+	db := store.NewStore(wal, manager)
+
+	recover.RecoverSnapshot(db, "data/snapshot.dat")
+	recover.RecoverWAL(db, "data")
 	err := recover.RecoverColdIndex(manager)
 
 	if err != nil {
 		fmt.Println("Cold recovery failed:", err)
 	}
 
-	db := store.NewStore(wal, manager)
 	snapshot.StartSnapshotLoop(db, 6*time.Minute)
-
-	recover.RecoverSnapshot(db, "data/snapshot.dat")
-
-	recover.RecoverWAL(db, "data")
-
 	db.StartCleaner()
 	db.StartCoolingWorker()
 
@@ -52,8 +50,8 @@ func main() {
 	<-sigChan
 
 	fmt.Println("Shutting down...")
-	// snap = db.ExportData()
-	// snapshot.SaveSnapshot(snap)
+	snap := db.ExportData()
+	err = snapshot.SaveSnapshot(snap)
 	srv.Shutdown()
 	wal.Close()
 	fmt.Println("Shutdown complete")

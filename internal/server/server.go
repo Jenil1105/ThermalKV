@@ -2,15 +2,26 @@ package server
 
 import (
 	"net"
-	"thermalkv/internal/store"
 )
+
+type KVService interface {
+	Set(key string, value string)
+	Get(key string) (string, bool)
+	Delete(key string)
+	SetTTL(key string, seconds int)
+	CoolKey(key string) error
+	Count() int
+	Exists(key string) bool
+	Keys() []string
+	GetInfo() []string
+}
 
 type Server struct {
 	Listener net.Listener
-	DB       *store.Store
+	DB       KVService
 }
 
-func New(db *store.Store) (*Server, error) {
+func New(db KVService) (*Server, error) {
 	listener, err := net.Listen("tcp", ":8080")
 
 	if err != nil {

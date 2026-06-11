@@ -78,8 +78,8 @@ func LoadLogs(dir string) []string {
 	return LoadLogsFromDir(dir)
 }
 
-func ClearWAL() {
-	file, err := os.Create("data/wal.log")
+func ClearWAL(path string) {
+	file, err := os.Create(path)
 
 	if err != nil {
 		fmt.Println("Error clearing WAL:", err)

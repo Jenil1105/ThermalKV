@@ -9,9 +9,9 @@ import (
 	"thermalkv/internal/model"
 )
 
-func SaveSnapshot(data map[string]model.SnapshotItem) error {
+func SaveSnapshot(path string, data map[string]model.SnapshotItem) error {
 
-	file, err := os.Create("data/snapshot.dat")
+	file, err := os.Create(path)
 
 	if err != nil {
 		return err

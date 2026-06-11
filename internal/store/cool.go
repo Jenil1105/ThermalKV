@@ -7,7 +7,6 @@ func (s *Store) CoolKey(key string) error {
 	defer s.Mutex.Unlock()
 
 	item, exists := s.Data[key]
-	s.CurrentMemoryUsage -= item.Size
 
 	if !exists {
 		return fmt.Errorf("key not found")
@@ -18,7 +17,7 @@ func (s *Store) CoolKey(key string) error {
 		return err
 	}
 
-	delete(s.Data, key)
+	s.removeItem(key)
 
 	return nil
 }

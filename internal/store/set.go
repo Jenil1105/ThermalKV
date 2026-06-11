@@ -11,18 +11,13 @@ func (s *Store) Set(key string, value string) {
 	size := int64(len(value))
 	s.Mutex.Lock()
 
-	oldItem, exists := s.Data[key]
-
-	if exists {
-		s.CurrentMemoryUsage -= oldItem.Size
-	}
-
-	s.Data[key] = model.Item{
+	item := model.Item{
 		Value:          value,
 		LastAccessUnix: time.Now().Unix(),
 		Size:           size,
 	}
-	s.CurrentMemoryUsage += size
+
+	s.putItem(key, item)
 
 	if s.CurrentMemoryUsage > s.MaxHotMemory {
 		go s.RunEmergencyCooling()

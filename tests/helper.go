@@ -28,7 +28,7 @@ func NewTestStore(t *testing.T) *store.Store {
 		false,
 	)
 
-	manager := coldstore.NewManager()
+	manager := coldstore.NewManager("tests/testdata/cold.dat")
 
 	db := store.NewStore(
 		wal,

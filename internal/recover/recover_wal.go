@@ -1,14 +1,10 @@
 package recover
 
 import (
-	"container/heap"
 	"strconv"
 	"strings"
-	"thermalkv/internal/model"
 	"thermalkv/internal/persistence/walpkg"
 	"thermalkv/internal/store"
-	"thermalkv/internal/ttl"
-	"time"
 )
 
 // Recover replays the given logs to restore the store's state after a restart.
@@ -30,21 +26,12 @@ func StoreLogs(s *store.Store, logs []string) {
 				continue
 			}
 
-			value := parts[2]
-			size := int64(len(value))
-			s.Data[key] = model.Item{
-				Value:          value,
-				LastAccessUnix: time.Now().Unix(),
-				Size:           size,
-			}
-			s.CurrentMemoryUsage += size
+			value := strings.Join(parts[2:], " ")
+			s.RecoverSet(key, value)
 
 		case "DEL":
 
-			if s.Exists(key) {
-				s.CurrentMemoryUsage -= s.Data[key].Size
-				delete(s.Data, key)
-			}
+			s.RecoverDelete(key)
 
 		case "EXPIRE":
 
@@ -56,17 +43,7 @@ func StoreLogs(s *store.Store, logs []string) {
 			if err != nil {
 				continue
 			}
-			item, exists := s.Data[key]
-			if !exists {
-				continue
-			}
-			item.Expiry = expiry
-			s.Data[key] = item
-
-			heap.Push(&s.ExpiryHeap, ttl.ExpiryItem{
-				Key:    key,
-				Expiry: expiry,
-			})
+			s.RecoverExpire(key, expiry)
 		}
 	}
 }

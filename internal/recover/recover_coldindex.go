@@ -9,13 +9,13 @@ import (
 	"time"
 )
 
-func RecoverColdIndex(m *coldstore.Manager) error {
+func RecoverColdIndex(m *coldstore.Manager, coldPath string) error {
 
 	m.ColdStore.Lock()
 	defer m.ColdStore.Unlock()
 
 	file, err := os.Open(
-		"data/cold.dat",
+		coldPath,
 	)
 	if err != nil {
 		return nil

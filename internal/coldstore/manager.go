@@ -12,8 +12,8 @@ type Manager struct {
 	ColdStore sync.RWMutex
 }
 
-func NewManager() *Manager {
-	newtray := icetray.NewIceTray("data/cold.dat")
+func NewManager(coldpath string) *Manager {
+	newtray := icetray.NewIceTray(coldpath)
 	newcoldindex := index.NewColdIndex()
 
 	return &Manager{

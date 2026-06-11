@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 )
 
 type WAL struct {
+	Path         string
 	File         *os.File
 	Writer       *bufio.Writer
 	Sync         bool
@@ -35,6 +37,7 @@ func NewWAL(path string, sync bool) *WAL {
 	writer := bufio.NewWriterSize(file, 64*1024)
 
 	return &WAL{
+		Path:         path,
 		File:         file,
 		Sync:         sync,
 		Writer:       writer,
@@ -146,15 +149,20 @@ func (w *WAL) Rotate() (string, error) {
 		return "", err
 	}
 
-	rotatedFile := fmt.Sprintf("data/wal_%d.log", time.Now().UnixNano())
+	dir := filepath.Dir(w.Path)
+	base := filepath.Base(w.Path)
+	ext := filepath.Ext(base)
+	name := strings.TrimSuffix(base, ext)
 
-	err = os.Rename("data/wal.log", rotatedFile)
+	rotatedFile := filepath.Join(dir, fmt.Sprintf("%s_%d%s", name, time.Now().UnixNano(), ext))
+
+	err = os.Rename(w.Path, rotatedFile)
 	if err != nil {
 		return "", err
 	}
 
 	newfile, err := os.OpenFile(
-		"data/wal.log",
+		w.Path,
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
 		0644,
 	)

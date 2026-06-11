@@ -34,7 +34,7 @@ func (s *Store) StartCleaner() {
 
 			if exists {
 				if item.Expiry == expired.Expiry {
-					delete(s.Data, expired.Key)
+					s.removeItem(expired.Key)
 				}
 			}
 			s.Mutex.Unlock()

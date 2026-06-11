@@ -1,10 +1,8 @@
 package store
 
 import (
-	"container/heap"
 	"fmt"
 	"strconv"
-	"thermalkv/internal/ttl"
 	"time"
 )
 
@@ -14,19 +12,11 @@ func (s *Store) SetTTL(key string, seconds int) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
-	item, exists := s.Data[key]
-
-	if !exists {
+	expiry := time.Now().Unix() + int64(seconds)
+	isExpirySet := s.setItemExpiry(key, expiry)
+	if !isExpirySet {
 		return
 	}
-	expiry := time.Now().Unix() + int64(seconds)
-	item.Expiry = expiry
-	s.Data[key] = item
-
-	heap.Push(&s.ExpiryHeap, ttl.ExpiryItem{
-		Key:    key,
-		Expiry: expiry,
-	})
 
 	err := s.WAL.Write("EXPIRE", key, strconv.FormatInt(expiry, 10))
 	if err != nil {

@@ -1,9 +1,7 @@
 package store
 
 import (
-	"container/heap"
 	"thermalkv/internal/model"
-	"thermalkv/internal/ttl"
 	"time"
 )
 
@@ -32,22 +30,16 @@ func (s *Store) ImportData(snapshot map[string]model.SnapshotItem) {
 			continue
 		}
 
-		size := int64(len(item.Value))
-
-		s.Data[key] = model.Item{
+		item := model.Item{
 			Value:          item.Value,
 			Expiry:         item.Expiry,
-			Size:           size,
+			Size:           int64(len(item.Value)),
 			LastAccessUnix: time.Now().Unix(),
 		}
-
-		s.CurrentMemoryUsage += size
+		s.putItem(key, item)
 
 		if item.Expiry != 0 {
-			heap.Push(&s.ExpiryHeap, ttl.ExpiryItem{
-				Key:    key,
-				Expiry: item.Expiry,
-			})
+			s.scheduleExpiry(key, item.Expiry)
 		}
 	}
 }

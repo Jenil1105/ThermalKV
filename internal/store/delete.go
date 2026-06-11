@@ -6,7 +6,7 @@ func (s *Store) Delete(key string) {
 
 	if s.Exists(key) {
 		s.Mutex.Lock()
-		delete(s.Data, key)
+		s.removeItem(key)
 		s.Mutex.Unlock()
 	} else {
 		exists := s.Thermal.HaveIndex(key)

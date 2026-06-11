@@ -7,19 +7,23 @@ import (
 	"time"
 )
 
-func StartSnapshotLoop(s *store.Store, interval time.Duration) {
+type WALRotator interface {
+	Rotate() (string, error)
+}
+
+func StartSnapshotLoop(s *store.Store, wal WALRotator, snapshotPath string, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
 	go func() {
 		for range ticker.C {
-			rotatedWal, err := s.WAL.Rotate()
+			rotatedWal, err := wal.Rotate()
 
 			if err != nil {
 				continue
 			}
 
 			snap := s.ExportData()
-			err = SaveSnapshot(snap)
+			err = SaveSnapshot(snapshotPath, snap)
 
 			if err != nil {
 				fmt.Println("Snapshout error: ", err)

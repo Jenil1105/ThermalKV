@@ -12,3 +12,9 @@ type SnapshotItem struct {
 	Expiry         int64
 	LastAccessUnix int64
 }
+
+type Paths struct {
+	WALPath      string
+	SnapshotPath string
+	ColdPath     string
+}

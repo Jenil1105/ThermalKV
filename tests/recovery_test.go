@@ -1,75 +1,112 @@
 package tests
 
-// import (
-// 	"os"
-// 	"testing"
-// 	"thermalkv/internal/persistence/walpkg"
-// 	"thermalkv/internal/recover"
-// 	"thermalkv/internal/store"
-// 	"thermalkv/internal/thermal"
-// )
+import (
+	"os"
+	"testing"
+	"thermalkv/internal/persistence/snapshot"
+	recoverpkg "thermalkv/internal/recover"
+)
 
-// func TestWALRecovery(t *testing.T) {
+func TestRecoverWALRoundTripPreservesLatestState(t *testing.T) {
+	source := NewNamedTestEnv(t, "source")
+	recovered := NewNamedTestEnv(t, "recovered")
 
-// 	testDir := "tests/testdata/recovery"
+	source.Store.Set("A", "hello world")
+	source.Store.Set("B", "persist me")
+	source.Store.SetTTL("B", 3600)
+	source.Store.Set("C", "old value")
+	source.Store.Set("C", "new value again")
+	source.Store.Delete("A")
 
-// 	os.RemoveAll(testDir)
-// 	os.MkdirAll(testDir, 0755)
+	recoverpkg.RecoverWAL(recovered.Store, source.Dir)
 
-// 	wal := walpkg.NewWAL(
-// 		testDir+"/wal.log",
-// 		false,
-// 	)
+	if _, exists := recovered.Store.Get("A"); exists {
+		t.Fatal("expected deleted key A to stay deleted after WAL recovery")
+	}
 
-// 	db := store.NewStore(
-// 		wal,
-// 		thermal.NewManager(),
-// 	)
+	value, exists := recovered.Store.Get("B")
+	if !exists {
+		t.Fatal("expected key B to exist after WAL recovery")
+	}
+	if value != "persist me" {
+		t.Fatalf("expected key B value %q, got %q", "persist me", value)
+	}
 
-// 	db.MaxHotMemory = 1000000
+	if recovered.Store.Data["B"].Expiry == 0 {
+		t.Fatal("expected recovered key B to retain its expiry")
+	}
 
-// 	db.Set("A", "hello")
-// 	db.Set("B", "world")
+	value, exists = recovered.Store.Get("C")
+	if !exists {
+		t.Fatal("expected key C to exist after WAL recovery")
+	}
+	if value != "new value again" {
+		t.Fatalf("expected latest value for key C, got %q", value)
+	}
 
-// 	logs := walpkg.LoadLogsFromDir(testDir)
+	expectedMemory := int64(len("persist me") + len("new value again"))
+	if recovered.Store.CurrentMemoryUsage != expectedMemory {
+		t.Fatalf("expected recovered memory usage %d, got %d", expectedMemory, recovered.Store.CurrentMemoryUsage)
+	}
+}
 
-// 	t.Log(logs)
+func TestRecoverSnapshotRoundTripUsesConfiguredPath(t *testing.T) {
+	source := NewNamedTestEnv(t, "snapshot_source")
+	recovered := NewNamedTestEnv(t, "snapshot_recovered")
 
-// 	recoveredStore := store.NewStore(
-// 		walpkg.NewWAL(
-// 			testDir+"/recovered.log",
-// 			false,
-// 		),
-// 		thermal.NewManager(),
-// 	)
+	source.Store.Set("name", "ThermalKV")
+	source.Store.Set("lang", "Go")
+	source.Store.SetTTL("lang", 3600)
 
-// 	recoveredStore.MaxHotMemory = 1000000
+	snapshotData := source.Store.ExportData()
+	if err := snapshot.SaveSnapshot(source.Paths.SnapshotPath, snapshotData); err != nil {
+		t.Fatalf("save snapshot failed: %v", err)
+	}
 
-// 	recover.RecoverWAL(recoveredStore, logs)
+	recoverpkg.RecoverSnapshot(recovered.Store, source.Paths.SnapshotPath)
 
-// 	value, exists := recoveredStore.Get("A")
+	value, exists := recovered.Store.Get("name")
+	if !exists || value != "ThermalKV" {
+		t.Fatalf("expected snapshot to restore name=ThermalKV, got exists=%v value=%q", exists, value)
+	}
 
-// 	if !exists {
-// 		t.Fatal("A should exist after recovery")
-// 	}
+	value, exists = recovered.Store.Get("lang")
+	if !exists || value != "Go" {
+		t.Fatalf("expected snapshot to restore lang=Go, got exists=%v value=%q", exists, value)
+	}
 
-// 	if value != "hello" {
-// 		t.Fatalf(
-// 			"expected hello, got %s",
-// 			value,
-// 		)
-// 	}
+	if recovered.Store.Data["lang"].Expiry == 0 {
+		t.Fatal("expected snapshot recovery to preserve expiry metadata")
+	}
+}
 
-// 	value, exists = recoveredStore.Get("B")
+func TestRecoverColdIndexUsesProvidedPath(t *testing.T) {
+	env := NewTestEnv(t)
 
-// 	if !exists {
-// 		t.Fatal("B should exist after recovery")
-// 	}
+	content := []byte(
+		"keep|value|4102444800\n" +
+			"drop|value|1\n" +
+			"keep2|other|4102444800\n" +
+			"DEL|keep2\n",
+	)
 
-// 	if value != "world" {
-// 		t.Fatalf(
-// 			"expected world, got %s",
-// 			value,
-// 		)
-// 	}
-// }
+	if err := os.WriteFile(env.Paths.ColdPath, content, 0644); err != nil {
+		t.Fatalf("failed to seed cold file: %v", err)
+	}
+
+	if err := recoverpkg.RecoverColdIndex(env.Manager, env.Paths.ColdPath); err != nil {
+		t.Fatalf("recover cold index failed: %v", err)
+	}
+
+	if !env.Manager.HaveIndex("keep") {
+		t.Fatal("expected unexpired key to be indexed")
+	}
+
+	if env.Manager.HaveIndex("drop") {
+		t.Fatal("expected expired key to be skipped during recovery")
+	}
+
+	if env.Manager.HaveIndex("keep2") {
+		t.Fatal("expected DEL marker to remove recovered cold index entry")
+	}
+}

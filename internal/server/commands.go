@@ -24,7 +24,7 @@ func ExecuteCommand(db KVService, input string) ([]string, bool) {
 		key := parts[1]
 		value := strings.Join(parts[2:], " ")
 		db.Set(key, value)
-		return []string{"Done :)"}, false
+		return []string{"OK :)"}, false
 
 	case "GET":
 		if len(parts) < 2 {
@@ -45,7 +45,7 @@ func ExecuteCommand(db KVService, input string) ([]string, bool) {
 
 		key := parts[1]
 		db.Delete(key)
-		return []string{"Deleted"}, false
+		return []string{"OK :)"}, false
 
 	case "TTL":
 		if len(parts) < 3 {
@@ -55,13 +55,13 @@ func ExecuteCommand(db KVService, input string) ([]string, bool) {
 		key := parts[1]
 		seconds, err := strconv.Atoi(parts[2])
 		if err != nil {
-			return []string{"Invalid seconds"}, false
+			return []string{"Invalid seconds :/"}, false
 		}
 
 		_, exists := db.Get(key)
 		if exists {
 			db.SetTTL(key, seconds)
-			return []string{"TTL set"}, false
+			return []string{"OK :)"}, false
 		}
 		return []string{"Key not found... :("}, false
 
@@ -75,7 +75,7 @@ func ExecuteCommand(db KVService, input string) ([]string, bool) {
 		if err != nil {
 			return []string{err.Error()}, false
 		}
-		return []string{"Moved to COOL storage"}, false
+		return []string{"OK :)"}, false
 
 	case "COUNT":
 		count := db.Count()
@@ -95,7 +95,7 @@ func ExecuteCommand(db KVService, input string) ([]string, bool) {
 	case "KEYS":
 		keys := db.Keys()
 		if len(keys) == 0 {
-			return []string{"No keys"}, false
+			return []string{"No keys :|"}, false
 		}
 		return []string{strings.Join(keys, ", ")}, false
 
@@ -103,9 +103,9 @@ func ExecuteCommand(db KVService, input string) ([]string, bool) {
 		return db.GetInfo(), false
 
 	case "EXIT":
-		return []string{"bye... "}, true
+		return []string{"bye... ;) "}, true
 
 	default:
-		return []string{"Unknown command"}, false
+		return []string{"Unknown command :/"}, false
 	}
 }

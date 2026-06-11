@@ -64,7 +64,7 @@ func (i *ColdIndex) HaveColdEntry(key string) bool {
 	return exists
 }
 
-func (i *ColdIndex) GetIndexSize() int {
+func (i *ColdIndex) GetSize() int {
 	return len(i.entries)
 }
 

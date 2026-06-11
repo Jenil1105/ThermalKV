@@ -13,5 +13,5 @@ func (m *Manager) HaveIndex(key string) bool {
 }
 
 func (m *Manager) GetIndexSize() int {
-	return m.ColdIndex.GetIndexSize()
+	return m.ColdIndex.GetSize()
 }

@@ -15,13 +15,31 @@ import (
 	"time"
 )
 
+const Version = "v0.1.0"
+
 func main() {
+
+	if len(os.Args) > 1 && os.Args[1] == "--version" {
+		fmt.Println("ThermalKV ", Version)
+		return
+	}
+
+	fmt.Println("=================================")
+	fmt.Println(" ThermalKV", Version)
+	fmt.Println(" Hot/Cold Key-Value Store")
+	fmt.Println("=================================")
+	fmt.Println()
+	fmt.Printf("Version: %s\n", Version)
+	fmt.Printf("Port: %d\n", 8080)
+	fmt.Printf("Data Directory: data/\n")
+	fmt.Println()
 
 	paths := model.Paths{
 		WALPath:      "data/wal.log",
 		SnapshotPath: "data/snapshot.dat",
 		ColdPath:     "data/cold.dat",
 	}
+	os.MkdirAll("data", 0755)
 
 	wal := walpkg.NewWAL(paths.WALPath, false)
 	wal.StartSyncLoop()

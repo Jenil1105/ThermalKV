@@ -11,7 +11,7 @@ const EndMarker = "__END_RESPONSE__"
 
 func (s *Server) Start() {
 
-	fmt.Println("ThermalKV server running on port 8080...")
+	fmt.Println("Server started...")
 
 	for {
 		conn, err := s.Listener.Accept()

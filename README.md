@@ -1,6 +1,25 @@
 # ThermalKV
 
+<p align="center">
+  <a href="https://github.com/Jenil1105/ThermalKV/releases/tag/v0.1.0">
+    <img src="https://img.shields.io/badge/Release-v0.1.0-orange?style=for-the-badge&logo=github" alt="Release v0.1.0">
+  </a>
+  <a href="https://thermalkv.onrender.com/">
+    <img src="https://img.shields.io/badge/Documentation-Live-blue?style=for-the-badge&logo=gitbook" alt="Documentation">
+  </a>
+  <a href="https://golang.org/">
+    <img src="https://img.shields.io/badge/Go-1.26.2-blue?style=for-the-badge&logo=go" alt="Go Version">
+  </a>
+</p>
+
 ThermalKV is a Go key-value store implementing hot in-memory storage with durable persistence and manual cold storage migration. It demonstrates TTL expiration, WAL durability, snapshot recovery, cold storage indexing, and a simple TCP client/server interface.
+
+---
+
+## 🔗 Quick Links
+
+* **Live Documentation:** [ThermalKV DOCs](https://thermalkv.onrender.com/)
+* **Latest Release:** [v0.1.0 Release](https://github.com/Jenil1105/ThermalKV/releases/tag/v0.1.0)
 
 ---
 
@@ -20,34 +39,10 @@ ThermalKV is a Go key-value store implementing hot in-memory storage with durabl
 
 ## Architecture
 
-```text
-                 +----------------+
-                 |     Client     |
-                 +----------------+
-                          |
-                          v
-                 +----------------+
-                 |   TCP Server   |
-                 +----------------+
-                          |
-                          v
-                 +----------------+
-                 |     Store      |
-                 +----------------+
-                    |    |    |
-          +---------+    |    +---------+
-          |              |              |
-          v              v              v
-   +------------+ +------------+ +------------+
-   | TTL Heap   | |    WAL     | | Snapshot   |
-   +------------+ +------------+ +------------+
-                                        |
-                                        v
-                               +----------------+
-                               | Cold Storage   |
-                               |   (cold.dat)   |
-                               +----------------+
-```
+Below is the design and architecture diagram of ThermalKV:
+
+![ThermalKV Architecture](assets/architecture.png)
+
 
 ---
 
@@ -242,6 +237,9 @@ On startup the server:
 ```text
 ThermalKV/
 │
+├── assets/
+│   └── architecture.png
+│
 ├── cmd/
 │   ├── server/
 │   └── client/
@@ -297,7 +295,10 @@ go test ./...
 
 ## Current Status
 
-Implemented:
+* **Latest Release:** `v0.1.0`
+* **Status:** Active development. The core storage, replication-ready state machine, and persistence layer are stable.
+
+### Implemented Features
 
 * Hot in-memory storage
 * TTL expiration
@@ -308,7 +309,7 @@ Implemented:
 * TCP server/client
 * Background expiration cleanup
 
-Planned:
+### Planned Roadmap
 
 * Automatic hot-to-cold migration
 * Warm storage layer

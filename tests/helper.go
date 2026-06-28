@@ -19,19 +19,19 @@ type TestEnv struct {
 	Store   *store.Store
 }
 
-func NewTestStore(t *testing.T) *store.Store {
+func NewTestStore(t testing.TB) *store.Store {
 	return NewTestEnv(t).Store
 }
 
-func NewTestEnv(t *testing.T) *TestEnv {
+func NewTestEnv(t testing.TB) *TestEnv {
 	return newTestEnv(t, "")
 }
 
-func NewNamedTestEnv(t *testing.T, suffix string) *TestEnv {
+func NewNamedTestEnv(t testing.TB, suffix string) *TestEnv {
 	return newTestEnv(t, suffix)
 }
 
-func newTestEnv(t *testing.T, suffix string) *TestEnv {
+func newTestEnv(t testing.TB, suffix string) *TestEnv {
 	t.Helper()
 
 	dirName := sanitizeTestName(t.Name())

@@ -33,3 +33,13 @@ If the README remains accurate after the commit,
 set update=false.
 
 The response must match the provided schema.
+
+When deciding whether the README should change:
+
+- Read the source code.
+- Do not rely only on the git diff.
+- Compare the implementation with the README.
+- If the README is still accurate, return update=false.
+- If implementation introduces architectural or user-facing documentation changes, return update=true.
+
+Do not assume that every feature commit requires a README update.

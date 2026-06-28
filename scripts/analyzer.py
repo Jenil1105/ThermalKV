@@ -15,57 +15,46 @@ client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 def run(cmd):
     return subprocess.check_output(cmd).decode("utf-8")
 
-
-readme = Path("README.md").read_text()
-
 prompt = Path("scripts/prompts/analyze.md").read_text()
 
-diff = run(["git", "diff", "HEAD~1", "HEAD"])
+from utils.context import build_context
 
-changed_files = run([
-    "git",
-    "diff",
-    "--name-only",
-    "HEAD~1",
-    "HEAD"
-])
-
-commit_message = run([
-    "git",
-    "log",
-    "-1",
-    "--pretty=%B"
-])
-
-tree = run([
-    "git",
-    "ls-tree",
-    "-r",
-    "--name-only",
-    "HEAD"
-])
+context = build_context()
 
 
 user_prompt = f"""
 README
 -----------------------
-{readme}
+{context["readme"]}
 
 COMMIT MESSAGE
 -----------------------
-{commit_message}
-
-CHANGED FILES
------------------------
-{changed_files}
+{context["commit"]}
 
 REPOSITORY TREE
 -----------------------
-{tree}
+{context["tree"]}
 
 GIT DIFF
 -----------------------
-{diff}
+{context["diff"]}
+
+CHANGED FILES
+-----------------------
+{chr(10).join(context["changed_files"])}
+
+SOURCE FILES
+-----------------------
+
+"""
+for file in context["files"]:
+    user_prompt += f"""
+
+FILE: {file["path"]}
+
+{file["content"]}
+
+--------------------------------------------
 """
 
 

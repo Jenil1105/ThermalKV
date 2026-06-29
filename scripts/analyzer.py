@@ -89,3 +89,10 @@ if analysis.sections:
         print("-", s)
 
 print("=" * 40)
+
+analysis.model_dump_json(indent=2)
+
+Path("analysis.json").write_text(
+    analysis.model_dump_json(indent=2),
+    encoding="utf-8"
+)

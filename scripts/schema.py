@@ -6,3 +6,6 @@ class Analysis(BaseModel):
     update: bool
     reason: str
     sections: List[str]
+
+class ReadmeUpdate(BaseModel):
+    readme: str

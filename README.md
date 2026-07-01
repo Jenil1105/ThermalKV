@@ -30,8 +30,6 @@ ThermalKV is a Go key-value store implementing hot in-memory storage with durabl
 * Background expiration cleaner.
 * Write-Ahead Logging (WAL) durability.
 * Snapshot persistence for faster restarts.
-* Manual cold storage migration (`COOL` command).
-* Lazy cold-key restoration on access.
 * TCP server/client architecture.
 * Graceful shutdown with final snapshot save.
 
@@ -86,7 +84,7 @@ Below is the design and architecture diagram of ThermalKV:
 
 `internal/store`
 
-Handles core database operations:
+Hangles core database operations:
 
 * SET, GET, DEL
 * TTL registration and expiry
@@ -98,7 +96,7 @@ Handles core database operations:
 
 `internal/persistence`
 
-Handles disk persistence:
+Hangles disk persistence:
 
 * WAL write and replay
 * Snapshot save and load
@@ -107,7 +105,7 @@ Handles disk persistence:
 
 `internal/coldstore`
 
-Handles:
+Hangles:
 
 * Cold data append storage.
 * Cold index management.
@@ -117,7 +115,7 @@ Handles:
 
 `internal/recover`
 
-Handles:
+Hangles:
 
 * Snapshot recovery.
 * WAL replay for `SET`, `DEL`, and `EXPIRE`.
@@ -152,9 +150,6 @@ Implements:
 | `GET <key>`           | Retrieve a value                       |
 | `DEL <key>`           | Delete a key                           |
 | `TTL <key> <seconds>` | Set expiration if the key exists       |
-| `COOL <key>`          | Move a key into cold storage           |
-| `COUNT`               | Number of hot keys in memory           |
-| `EXISTS <key>`        | Check whether a key exists             |
 | `KEYS`                | List all hot keys                      |
 | `INFO`                | Store statistics                       |
 | `EXIT`                | Close client connection                |
@@ -173,17 +168,9 @@ jenil
 TTL user1 30
 OK :)
 
-EXISTS user1
-true
-
-COOL user1
-OK :)
-
 GET user1
 jenil
 ```
-
-The final `GET` restores the cooled key back into memory.
 
 ---
 
@@ -304,8 +291,6 @@ go test ./...
 * TTL expiration
 * WAL persistence
 * Snapshot recovery
-* Manual cold storage migration
-* Lazy cold restore
 * TCP server/client
 * Background expiration cleanup
 

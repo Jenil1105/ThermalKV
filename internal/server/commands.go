@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -63,6 +64,40 @@ func ExecuteCommand(db KVService, input string) ([]string, bool) {
 			return []string{"OK :)"}, false
 		}
 		return []string{"Key not found... :("}, false
+
+	case "COOL":
+		if len(parts) < 2 {
+			return []string{"Usage: COOL key"}, false
+		}
+
+		key := parts[1]
+		err := db.CoolKey(key)
+		if err != nil {
+			return []string{err.Error()}, false
+		}
+		return []string{"OK :)"}, false
+
+	case "COUNT":
+		count := db.Count()
+		return []string{fmt.Sprintf("%d", count)}, false
+
+	case "EXISTS":
+		if len(parts) < 2 {
+			return []string{"Usage: EXISTS key"}, false
+		}
+
+		key := parts[1]
+		if db.Exists(key) {
+			return []string{"true"}, false
+		}
+		return []string{"false"}, false
+
+	case "KEYS":
+		keys := db.Keys()
+		if len(keys) == 0 {
+			return []string{"No keys :|"}, false
+		}
+		return []string{strings.Join(keys, ", ")}, false
 
 	case "INFO":
 		return db.GetInfo(), false

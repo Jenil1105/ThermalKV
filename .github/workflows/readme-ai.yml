@@ -7,23 +7,27 @@ on:
       - feature/ai-readme-updater
 
 permissions:
-  contents: read
-  models: read
+  contents: write
+  pull-requests: write
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 2
+          persist-credentials: true
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - run: |
+      - name: Install dependencies
+        run: |
           pip install -r requirements.txt
 
       - name: Run analyzer
@@ -35,3 +39,64 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python scripts/editor.py
+
+      - name: Check README changes
+        id: changes
+        run: |
+          echo "changed=$(cat readme_changed.txt)" >> $GITHUB_OUTPUT
+
+      - name: Create branch
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git fetch origin
+
+          BRANCH="ai/readme-${GITHUB_RUN_ID}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Commit README
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git add README.md
+
+          if git diff --cached --quiet; then
+            echo "No README changes."
+            exit 0
+          fi
+
+          git commit -m "docs: update README"
+
+      - name: Push branch
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git push -u origin "$BRANCH"
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "docs: AI README update" \
+            --body "$(cat <<EOF
+## AI README Update
+
+This pull request was generated automatically after analyzing the latest commit.
+
+### Analysis
+
+\`\`\`json
+$(cat analysis.json)
+\`\`\`
+
+Please review the generated README before merging.
+
+EOF
+)"

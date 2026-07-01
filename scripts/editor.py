@@ -86,6 +86,7 @@ FILE:
 updated = response.parsed.readme
 
 if updated.strip() == readme.strip():
+    Path("readme_changed.txt").write_text("false")
     print("README unchanged.")
     exit(0)
 
@@ -93,5 +94,7 @@ Path("README.md").write_text(
     updated,
     encoding="utf-8"
 )
+
+Path("readme_changed.txt").write_text("true")
 
 print("README updated successfully.")

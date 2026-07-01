@@ -86,17 +86,17 @@ jobs:
             --head "$BRANCH" \
             --title "docs: AI README update" \
             --body "$(cat <<EOF
-## AI README Update
+          ## AI README Update
 
-This pull request was generated automatically after analyzing the latest commit.
+          This pull request was generated automatically after analyzing the latest commit.
 
-### Analysis
+          ### Analysis
 
-\`\`\`json
-$(cat analysis.json)
-\`\`\`
+          \`\`\`json
+          $(cat analysis.json)
+          \`\`\`
 
-Please review the generated README before merging.
+          Please review the generated README before merging.
 
-EOF
-)"
+          EOF
+          )"

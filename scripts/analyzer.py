@@ -1,108 +1,98 @@
 import json
 import subprocess
+import os
 from pathlib import Path
 
-from openai import OpenAI
+from google import genai
+from google.genai import types
+
+from schema import Analysis
 
 
-client = OpenAI()
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 
 def run(cmd):
     return subprocess.check_output(cmd).decode("utf-8")
 
-
-# Read README
-readme = Path("README.md").read_text(encoding="utf-8")
-
-# Read prompt
 prompt = Path("scripts/prompts/analyze.md").read_text()
 
-# Git diff
-diff = run(["git", "diff", "HEAD~1", "HEAD"])
+from utils.context import build_context
 
-# Changed files
-changed_files = run([
-    "git",
-    "diff",
-    "--name-only",
-    "HEAD~1",
-    "HEAD",
-])
+context = build_context()
 
-# Commit message
-commit_message = run([
-    "git",
-    "log",
-    "-1",
-    "--pretty=%B",
-])
-
-# Repository tree
-try:
-    tree = run(["git", "ls-tree", "-r", "--name-only", "HEAD"])
-except:
-    tree = ""
 
 user_prompt = f"""
 README
-
-{readme}
-
-------------------------
+-----------------------
+{context["readme"]}
 
 COMMIT MESSAGE
-
-{commit_message}
-
-------------------------
-
-CHANGED FILES
-
-{changed_files}
-
-------------------------
+-----------------------
+{context["commit"]}
 
 REPOSITORY TREE
-
-{tree}
-
-------------------------
+-----------------------
+{context["tree"]}
 
 GIT DIFF
+-----------------------
+{context["diff"]}
 
-{diff}
+CHANGED FILES
+-----------------------
+{chr(10).join(context["changed_files"])}
+
+SOURCE FILES
+-----------------------
+
+"""
+for file in context["files"]:
+    user_prompt += f"""
+
+FILE: {file["path"]}
+
+{file["content"]}
+
+--------------------------------------------
 """
 
-response = client.responses.create(
-    model="gpt-4.1",
-    input=[
-        {
-            "role": "system",
-            "content": prompt,
-        },
-        {
-            "role": "user",
-            "content": user_prompt,
-        },
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=[
+        prompt,
+        user_prompt,
     ],
+    config=types.GenerateContentConfig(
+        temperature=0,
+        response_mime_type="application/json",
+        response_schema=Analysis,
+    ),
 )
 
-text = response.output_text.strip()
 
-print("\n===== AI RESPONSE =====\n")
-print(text)
+analysis = response.parsed
 
-try:
-    result = json.loads(text)
+print()
 
-    print("\nDecision :", result["update"])
-    print("Reason   :", result["reason"])
+print("=" * 40)
+print("README ANALYSIS")
+print("=" * 40)
 
-    if result["sections"]:
-        print("Sections :")
-        for section in result["sections"]:
-            print(" -", section)
+print("Update :", analysis.update)
+print("Reason :", analysis.reason)
 
-except Exception:
-    print("AI returned invalid JSON.")
+if analysis.sections:
+    print("\nSections")
+    for s in analysis.sections:
+        print("-", s)
+
+print("=" * 40)
+
+analysis.model_dump_json(indent=2)
+
+Path("analysis.json").write_text(
+    analysis.model_dump_json(indent=2),
+    encoding="utf-8"
+)
